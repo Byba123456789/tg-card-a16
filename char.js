@@ -146,36 +146,6 @@ const Char = (() => {
     }
   }
 
-  function chain(n, len, dx, dy, stiff) {
-    return { pts: Array.from({ length: n }, () => ({ x: 0, y: 0, px: 0, py: 0 })), len, dx, dy, stiff, init: false };
-  }
-
-  function stepChain(ch, ax, ay, dt) {
-    const p = ch.pts;
-    if (!ch.init) {
-      p.forEach((q, i) => { q.x = q.px = ax + ch.dx * ch.len * i; q.y = q.py = ay + ch.dy * ch.len * i; });
-      ch.init = true;
-    }
-    p[0].x = p[0].px = ax;
-    p[0].y = p[0].py = ay;
-    for (let i = 1; i < p.length; i++) {
-      const q = p[i];
-      const vx = (q.x - q.px) * 0.9, vy = (q.y - q.py) * 0.9;
-      q.px = q.x; q.py = q.y;
-      const rx = p[i - 1].x + ch.dx * ch.len, ry = p[i - 1].y + ch.dy * ch.len;
-      q.x += vx + (rx - q.x) * ch.stiff;
-      q.y += vy + (ry - q.y) * ch.stiff + 260 * dt * dt;
-    }
-    for (let it = 0; it < 3; it++) {
-      for (let i = 1; i < p.length; i++) {
-        const a = p[i - 1], q = p[i];
-        const dx = q.x - a.x, dy = q.y - a.y, d = Math.hypot(dx, dy) || 0.01;
-        q.x = a.x + dx / d * ch.len;
-        q.y = a.y + dy / d * ch.len;
-      }
-    }
-  }
-
   // позы танца: смещение таза, руки/ноги относительно таза, наклон головы
   const DANCE = [
     { hip: [0, 4], hl: [-12, -33], hr: [12, -33], fl: [-11, 21], fr: [11, 21] },
@@ -188,7 +158,8 @@ const Char = (() => {
     { hip: [0, 4], hl: [-12, -33], hr: [12, -33], fl: [-11, 21], fr: [11, 21], wink: true },
   ];
 
-  function create(x, y) {
+  // holdAt(i) — зацепка i ({x, y, side}); для i < 0 — точка на земле. Руки на зацепках k и k-1, ноги на k-3 (согнутая) и k-4 (прямая)
+  function create(holdAt) {
     const off = document.createElement('canvas');
     off.width = OW; off.height = OH;
     const oc = off.getContext('2d');
@@ -197,42 +168,46 @@ const Char = (() => {
     const sc = sil.getContext('2d');
 
     const c = {
-      mode: 'stand', view: 'back', t: 0,
-      hip: { x, y }, hand: { L: { x: x - 6, y: y + 4 }, R: { x: x + 6, y: y + 4 } },
-      foot: { L: { x: x - 4, y: y + 24 }, R: { x: x + 4, y: y + 24 } },
-      lean: 0, wink: false,
-      tails: [chain(3, 2.5, -0.15, 1, 0.14), chain(3, 2.5, 0.15, 1, 0.14)],
-      tr: null, top: null, low: null, fallV: 0, danceBase: null, danceT: 0, onDone: null,
+      mode: 'stand', view: 'back', t: 0, k: 1,
+      hip: { x: 0, y: 0 }, hand: { L: { x: 0, y: 0 }, R: { x: 0, y: 0 } }, foot: { L: { x: 0, y: 0 }, R: { x: 0, y: 0 } },
+      handOn: { L: 0, R: 0 }, footOn: { L: 0, R: 0 },
+      lean: 0, wink: false, hem: 0, hemV: 0, prevVx: 0, prevX: 0,
+      tr: null, rest: null, fallV: 0, danceBase: null, danceT: 0, onDone: null,
     };
 
-    function restFor(top, low) {
-      const hx = (top.x + low.x) / 2, hy = Math.max(top.y, low.y) + 16;
-      return { hip: { x: hx, y: hy }, fL: { x: hx - 5, y: hy + 20 }, fR: { x: hx + 5, y: hy + 20 } };
+    const grip = i => { const h = holdAt(i); return { x: h.x, y: h.y - 1 }; };
+    const step = i => { const h = holdAt(i); return { x: h.x, y: h.ground ? h.y : h.y - 3 }; };
+    function restHip() {
+      const hl = grip(c.handOn.L), hr = grip(c.handOn.R), fl = step(c.footOn.L), fr = step(c.footOn.R);
+      return { x: (hl.x + hr.x) * 0.3 + (fl.x + fr.x) * 0.2, y: Math.max(hl.y, hr.y) + 12 };
     }
 
-    c.hang = (top, low) => {
-      c.mode = 'hang'; c.view = 'back'; c.top = top; c.low = low;
-      c.hand[top.side < 0 ? 'L' : 'R'] = { x: top.x, y: top.y };
-      c.hand[top.side < 0 ? 'R' : 'L'] = { x: low.x, y: low.y };
-      const r = restFor(top, low);
-      c.hip = { ...r.hip };
-      c.foot.L = { ...r.fL };
-      c.foot.R = { ...r.fR };
-      c.rest = r;
+    c.hangAt = k => {
+      c.mode = 'hang'; c.view = 'back'; c.k = k; c.t = 0;
+      const top = holdAt(k);
+      const topHand = top.side < 0 ? 'L' : 'R';
+      c.handOn[topHand] = k;
+      c.handOn[topHand === 'L' ? 'R' : 'L'] = k - 1;
+      c.footOn.L = k - 4 + (k % 2 ? 1 : 0);
+      c.footOn.R = k - 3 - (k % 2 ? 1 : 0);
+      c.hand.L = grip(c.handOn.L); c.hand.R = grip(c.handOn.R);
+      c.foot.L = step(c.footOn.L); c.foot.R = step(c.footOn.R);
+      c.rest = restHip();
+      c.hip = { ...c.rest };
     };
 
-    // перехват: тянется нижняя рука; если зацепка с другой стороны — тело перекачивается с инерцией
-    c.climbTo = (next, dur = 0.75) => {
-      const moving = c.hand.L.y > c.hand.R.y ? 'L' : 'R';
-      const r = restFor(next, c.top);
-      const swing = next.side !== c.top.side;
-      c.tr = {
-        dur: swing ? dur * 1.1 : dur, t: 0, moving, side: next.side, swing,
-        h0: { ...c.hand[moving] }, h1: { x: next.x, y: next.y },
-        hip0: { ...c.hip }, hip1: r.hip,
-        fL0: { ...c.foot.L }, fL1: r.fL, fR0: { ...c.foot.R }, fR1: r.fR,
-      };
-      c.low = c.top; c.top = next; c.rest = r;
+    // шаг вверх: толчок согнутой ногой → нижняя рука перехватывает зацепку k+1 → нижняя нога переступает на k-2
+    c.climbUp = (dur = 0.8) => {
+      const k = c.k + 1;
+      const hand = c.handOn.L < c.handOn.R ? 'L' : 'R';
+      const foot = c.footOn.L < c.footOn.R ? 'L' : 'R';
+      const swing = holdAt(k).side !== holdAt(k - 1).side;
+      const h0 = { ...c.hand[hand] }, f0 = { ...c.foot[foot] }, hip0 = { ...c.hip };
+      c.handOn[hand] = k;
+      c.footOn[foot] = k - 2;
+      c.k = k;
+      const hip1 = restHip();
+      c.tr = { dur, t: 0, hand, foot, swing, side: holdAt(k).side, h0, h1: grip(k), f0, f1: step(k - 2), hip0, hip1 };
       c.mode = 'climb';
     };
 
@@ -254,27 +229,24 @@ const Char = (() => {
       c.t += dt;
       c.wink = false;
       if (c.mode === 'hang') {
-        c.hip.y = c.rest.hip.y + Math.sin(c.t * 2.2) * 0.6;
-        c.hip.x = c.rest.hip.x + Math.sin(c.t * 1.1) * 0.4;
+        c.hip.y = c.rest.y + Math.sin(c.t * 2.2) * 0.5;
+        c.hip.x = c.rest.x + Math.sin(c.t * 1.1) * 0.3;
         c.lean = lerp(c.lean, 0, dt * 6);
       } else if (c.mode === 'climb') {
         const tr = c.tr;
         tr.t += dt;
         const k = tr.t / tr.dur;
-        const kr = ease(phase(k, 0, 0.4));
-        const bulge = Math.sin(Math.PI * kr) * 4;
-        c.hand[tr.moving] = { x: lerp(tr.h0.x, tr.h1.x, kr) - tr.side * bulge * 0.5, y: lerp(tr.h0.y, tr.h1.y, kr) - bulge * 0.4 };
-        const kp = phase(k, 0.3, 0.8);
-        const pre = Math.sin(Math.PI * phase(k, 0, 0.4)) * 2;
-        c.hip.x = lerp(tr.hip0.x, tr.hip1.x, tr.swing ? backOut(kp) : ease(kp)) + tr.side * pre;
-        c.hip.y = lerp(tr.hip0.y, tr.hip1.y, ease(kp)) - pre * 0.5;
-        c.lean = tr.side * (tr.swing ? 5 : 3) * Math.sin(Math.PI * phase(k, 0, 0.8));
-        for (const [f, a, z, s0, s1] of [['L', 0.62, 0.84, tr.fL0, tr.fL1], ['R', 0.76, 1, tr.fR0, tr.fR1]]) {
-          const kf = ease(phase(k, a, z));
-          const lift = Math.sin(Math.PI * kf) * 4;
-          c.foot[f] = { x: lerp(s0.x, s1.x, kf) + (f === 'L' ? -lift : lift) * 0.4, y: lerp(s0.y, s1.y, kf) - lift };
-        }
-        if (k >= 1) { c.mode = 'hang'; c.tr = null; c.t = 0; if (c.onDone) c.onDone(); }
+        const kp = ease(phase(k, 0, 0.4));
+        const kh = ease(phase(k, 0.3, 0.7));
+        const kf = ease(phase(k, 0.62, 1));
+        c.hip.y = lerp(tr.hip0.y, tr.hip1.y, kp);
+        c.hip.x = lerp(tr.hip0.x, tr.hip1.x, tr.swing ? backOut(phase(k, 0.3, 0.85)) : ease(phase(k, 0.2, 0.8)));
+        const bulge = Math.sin(Math.PI * kh) * 3;
+        c.hand[tr.hand] = { x: lerp(tr.h0.x, tr.h1.x, kh) - tr.side * bulge * 0.4, y: lerp(tr.h0.y, tr.h1.y, kh) - bulge * 0.3 };
+        const lift = Math.sin(Math.PI * kf) * 4;
+        c.foot[tr.foot] = { x: lerp(tr.f0.x, tr.f1.x, kf) + (tr.foot === 'L' ? -lift : lift) * 0.5, y: lerp(tr.f0.y, tr.f1.y, kf) - lift };
+        c.lean = tr.side * (tr.swing ? 4 : 2) * Math.sin(Math.PI * phase(k, 0.2, 0.9));
+        if (k >= 1) { c.mode = 'hang'; c.rest = tr.hip1; c.t = 0; c.tr = null; if (c.onDone) c.onDone(); }
       } else if (c.mode === 'fall') {
         c.fallV += 380 * dt;
         c.hip.y += c.fallV * dt;
@@ -311,10 +283,15 @@ const Char = (() => {
         c.hand.R = { x: s.R[0] + 1, y: s.R[1] + 18 + Math.sin(c.t * 2.2) * 0.4 };
         c.lean = lerp(c.lean, 0, dt * 6);
       }
-      const tx = c.hip.x + c.lean * 0.5;
-      for (let s = 0, n = Math.max(1, Math.ceil(dt * 120)); s < n; s++) {
-        stepChain(c.tails[0], tx - 5, c.hip.y + 2, dt / n);
-        stepChain(c.tails[1], tx + 5, c.hip.y + 2, dt / n);
+      // низ пиджака отстаёт от рывков таза (пружина)
+      if (dt > 0) {
+        const vx = (c.hip.x - c.prevX) / dt;
+        const ax = (vx - c.prevVx) / dt;
+        c.prevX = c.hip.x;
+        c.prevVx = vx;
+        c.hemV += (-c.hem * 160 - clamp(ax, -400, 400) * 0.02) * dt;
+        c.hemV *= Math.exp(-dt * 6);
+        c.hem = clamp(c.hem + c.hemV * dt, -2, 2);
       }
     };
 
@@ -329,14 +306,11 @@ const Char = (() => {
       const legR = ik(...hipR, c.foot.R.x, c.foot.R.y, THIGH, SHIN, -1);
       const armL = ik(...s.L, c.hand.L.x, c.hand.L.y, UPPER, FORE, -1);
       const armR = ik(...s.R, c.hand.R.x, c.hand.R.y, UPPER, FORE, 1);
-      const chainDraw = (ch, w, col, line) => {
-        const p = ch.pts;
-        for (let i = 1; i < p.length; i++) seg(oc, ...L(p[i - 1].x, p[i - 1].y), ...L(p[i].x, p[i].y), w + 2, line);
-        for (let i = 1; i < p.length; i++) seg(oc, ...L(p[i - 1].x, p[i - 1].y), ...L(p[i].x, p[i].y), w, col);
-      };
       const drawLeg = (hip, leg, left) => {
-        limb(oc, [L(...hip), L(leg[0], leg[1]), L(leg[2], leg[3])], 4, PAL.P, PAL.p, PAL.L, PAL.L);
-        const [fx, fy] = L(leg[2], leg[3]);
+        const pts = [L(...hip), L(leg[0], leg[1]), L(leg[2], leg[3])];
+        for (let i = 0; i < 2; i++) seg(oc, ...pts[i], ...pts[i + 1], 3, PAL.P);
+        for (let i = 0; i < 2; i++) seg(oc, pts[i][0] + (left ? -1 : 1), pts[i][1], pts[i + 1][0] + (left ? -1 : 1), pts[i + 1][1], 1, left ? PAL.p : PAL.L);
+        const [fx, fy] = pts[2];
         if (front) oc.drawImage(left ? SPR.shoeL : SPR.shoeR, Math.round(fx - (left ? 5 : 1)), Math.round(fy - 1));
         else oc.drawImage(SPR.heel, Math.round(fx - 2), Math.round(fy - 1));
       };
@@ -348,15 +322,18 @@ const Char = (() => {
         const [hx, hy] = L(arm[2], arm[3]);
         oc.drawImage(left ? SPR.handL : SPR.hand, Math.round(hx - 1), Math.round(hy - 1));
       };
-      c.tails.forEach(ch => chainDraw(ch, 2, front ? PAL.J : PAL.q, PAL.o));
+      const torso = front ? SPR.torsoF : SPR.torsoB;
+      const head = front ? (c.wink ? SPR.headFWink : SPR.headF) : SPR.headB;
+      const [tx, ty] = L(c.hip.x + c.lean * 0.5 - 6, c.hip.y - 15);
+      const [hx, hy] = L(c.hip.x + c.lean - 6, c.hip.y - 29);
+      // со спины руки на скале дальше от нас, чем спина: рисуем их за телом
+      if (!front) { drawArm(s.L, armL, true); drawArm(s.R, armR, false); }
       drawLeg(hipL, legL, true);
       drawLeg(hipR, legR, false);
-      const [tx, ty] = L(c.hip.x + c.lean * 0.5 - 6, c.hip.y - 15);
-      oc.drawImage(front ? SPR.torsoF : SPR.torsoB, Math.round(tx), Math.round(ty));
-      const [hx, hy] = L(c.hip.x + c.lean - 6, c.hip.y - 29);
-      oc.drawImage(front ? (c.wink ? SPR.headFWink : SPR.headF) : SPR.headB, Math.round(hx), Math.round(hy));
-      drawArm(s.L, armL, true);
-      drawArm(s.R, armR, false);
+      oc.drawImage(torso, 0, 0, 12, 13, Math.round(tx), Math.round(ty), 12, 13);
+      oc.drawImage(torso, 0, 13, 12, 5, Math.round(tx + c.hem), Math.round(ty) + 13, 12, 5);
+      oc.drawImage(head, Math.round(hx), Math.round(hy));
+      if (front) { drawArm(s.L, armL, true); drawArm(s.R, armR, false); }
       sc.clearRect(0, 0, OW, OH);
       sc.globalCompositeOperation = 'source-over';
       sc.drawImage(off, 0, 0);
