@@ -147,18 +147,19 @@ const Char = (() => {
   }
 
   // позы танца: смещение таза, руки/ноги относительно таза, наклон головы
-  // стопы (fl, fr) — от стоячего таза: x в стороны, y всегда на полу (LEG)
+  // Hakari Dance (мем «Dante dance»): широкая стойка на согнутых ногах, кулаки у груди, руки по очереди бьют вверх,
+  // таз качается в стороны; стопы (fl, fr) — от стоячего таза, y всегда на полу (LEG)
+  const FISTS = { hl: [-9, -8], hr: [9, -8] };
   const DANCE = [
-    { hip: [0, 4], hl: [-12, -33], hr: [12, -33], fl: [-10, LEG], fr: [10, LEG] },
-    { hip: [-2, 1], hl: [-8, -3], hr: [9, -35], fl: [-6, LEG], fr: [5, LEG], head: -1 },
-    { hip: [2, 1], hl: [-9, -35], hr: [8, -3], fl: [-5, LEG], fr: [6, LEG], head: 1 },
-    { hip: [0, 1], hl: [-8, -3], hr: [23, -16], fl: [-5, LEG], fr: [9, LEG], head: 1 },
-    { hip: [-1, 0], hl: [-5, -30], hr: [9, -4], fl: [-5, LEG], fr: [5, LEG], head: -1 },
-    { hip: [0, 1], hl: [-21, -14], hr: [21, -14], fl: [-6, LEG], fr: [6, LEG], back: true },
-    { hip: [0, 4], hl: [-22, -12], hr: [22, -12], fl: [-10, LEG], fr: [10, LEG] },
-    { hip: [0, 4], hl: [-12, -33], hr: [12, -33], fl: [-10, LEG], fr: [10, LEG], wink: true },
+    { hip: [0, 2], ...FISTS, fl: [-9, LEG], fr: [9, LEG] },
+    { hip: [2, 3], hl: [-10, -27], hr: [8, -10], fl: [-10, LEG], fr: [10, LEG], head: 1 },
+    { hip: [0, 2], ...FISTS, fl: [-9, LEG], fr: [9, LEG] },
+    { hip: [-2, 3], hl: [-8, -10], hr: [10, -27], fl: [-10, LEG], fr: [10, LEG], head: -1 },
+    { hip: [0, 5], hl: [-11, -4], hr: [11, -4], fl: [-10, LEG], fr: [10, LEG] },
+    { hip: [2, 3], hl: [-10, -27], hr: [8, -10], fl: [-10, LEG], fr: [10, LEG], head: 1 },
+    { hip: [-2, 3], hl: [-8, -10], hr: [10, -27], fl: [-10, LEG], fr: [10, LEG], head: -1 },
+    { hip: [0, 0], ...FISTS, fl: [-9, LEG], fr: [9, LEG], wink: true },
   ];
-
   const STAND_POSE = { hip: [0, 0], hl: [-6, 4], hr: [5, 4], fl: [-4, LEG], fr: [4, LEG] };
 
   // holdAt(i) — зацепка для рук ({x, y, side}); footAt(j, side) — выступ для ноги на ряду j ({x, y, ground}).
@@ -221,7 +222,7 @@ const Char = (() => {
 
     c.fall = (ground = 0) => { c.mode = 'fall'; c.view = 'front'; c.fallV = -40; c.t = 0; c.ground = ground; c.landed = false; };
     c.stand = (sx, gy, view = 'front') => {
-      c.mode = 'stand'; c.view = view; c.standY = gy - LEG;
+      c.mode = 'stand'; c.view = view; c.standY = gy - LEG; c.standX = sx;
       c.hip = { x: sx, y: c.standY };
       c.foot.L = { x: sx - 4, y: gy };
       c.foot.R = { x: sx + 4, y: gy };
@@ -293,10 +294,11 @@ const Char = (() => {
         const beat = 0.5;
         const i = Math.min(DANCE.length - 1, Math.floor(c.danceT / beat));
         const prev = i === 0 ? STAND_POSE : DANCE[i - 1], cur = DANCE[i];
-        const k = ease(phase(c.danceT - i * beat, 0, i === 0 ? 0.15 : 0.2));
+        // удар рукой резкий (0.1 с), возврат плавнее
+        const k = ease(phase(c.danceT - i * beat, 0, i === 0 ? 0.15 : 0.1));
         const mixp = (a, z) => [lerp(a[0], z[0], k), lerp(a[1], z[1], k)];
         const hip = mixp(prev.hip, cur.hip);
-        const bounce = Math.abs(Math.sin(Math.PI * c.danceT / (beat / 2))) * 1.5;
+        const bounce = Math.abs(Math.sin(Math.PI * c.danceT / (beat / 2))) * 2;
         const b = c.danceBase;
         c.hip = { x: b.x + hip[0], y: b.y + hip[1] - bounce };
         const hl = mixp(prev.hl, cur.hl), hr = mixp(prev.hr, cur.hr), fl = mixp(prev.fl, cur.fl), fr = mixp(prev.fr, cur.fr);
@@ -305,12 +307,13 @@ const Char = (() => {
         c.foot.L = { x: b.x + fl[0], y: b.y + fl[1] };
         c.foot.R = { x: b.x + fr[0], y: b.y + fr[1] };
         c.lean = lerp(prev.head || 0, cur.head || 0, k) * 2;
-        c.view = cur.back && k > 0.5 ? 'back' : 'front';
+        c.view = 'front';
         c.wink = !!cur.wink;
         if (c.danceT >= DANCE.length * beat) { const hip = { ...c.hip }; c.stand(b.x, b.y + LEG); c.hip = hip; if (c.onDone) c.onDone(); }
       } else {
         const s = shoulders(), k = Math.min(1, dt * 10);
         c.hip.y = lerp(c.hip.y, c.standY, k);
+        c.hip.x = lerp(c.hip.x, c.standX, k);
         c.hand.L = { x: lerp(c.hand.L.x, s.L[0] - 1, k), y: lerp(c.hand.L.y, s.L[1] + 18 + Math.sin(c.t * 2.2) * 0.4, k) };
         c.hand.R = { x: lerp(c.hand.R.x, s.R[0] + 1, k), y: lerp(c.hand.R.y, s.R[1] + 18 + Math.sin(c.t * 2.2) * 0.4, k) };
         c.lean = lerp(c.lean, 0, dt * 6);
