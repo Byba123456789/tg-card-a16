@@ -1,57 +1,56 @@
 const Game = (() => {
-  const TREE_TOP = 40;
   const STEP = 12;
+  const TREE_TOP = 40;
   const BIRDS_FROM = 50;
   const CLOUDS_FROM = 55;
   const CLOUDS_TO = 420;
   const SPACE_FROM = 600;
-  const DANCE_SEC = 4;
-  const PAL = {
-    hair: '#c99c5f', hairD: '#8f6634', skin: '#f1c7a2', skinD: '#d39e79', eye: '#2b2633',
-    jacket: '#8f9bad', jacketD: '#6b7688', shirt: '#f6f4ef', pants: '#25262c', shoe: '#121216', outline: '#15161b',
-  };
   const SKY = [
-    [0, '#9bd8ff', '#dff4ff'], [60, '#7cc0f5', '#c3e6ff'], [300, '#3f7fd0', '#8bbcef'],
+    [0, '#7cc7f2', '#d6f0ff'], [60, '#62b2ec', '#bfe4ff'], [300, '#3f7fd0', '#8bbcef'],
     [500, '#172c5e', '#30508f'], [650, '#05060f', '#0b1026'],
   ];
   const MILESTONES = [
-    [TREE_TOP, 'Вершина дерева!'], [TREE_TOP + 1, 'Теперь гора'], [80, 'Птицы, блять'],
+    [TREE_TOP, 'Вершина дерева!'], [TREE_TOP + 2, 'Теперь гора'], [80, 'Птицы, блять'],
     [180, 'В облаках'], [CLOUDS_TO, 'Выше облаков'], [SPACE_FROM, 'Космос, сука'], [1000, 'Илон Маск нервно курит'],
   ];
   const FALL_ROASTS = [
     'Хват как у пенсионера', 'Магнезию забыл, гений?', 'Ну ты и мешок', 'Гравитация передаёт привет',
     'Даже голубь лезет лучше', 'Слабак, давай ещё', 'Пиздец полёт', 'Скалодром плачет',
   ];
-  // позы: углы рук/ног в градусах (0 — вниз, 180 — вверх, + — вправо по экрану), [плечо/бедро, локоть/колено]
-  const POSES = {
-    stand: { la: [-10, -5], ra: [10, 5], ll: [-6, 0], rl: [6, 0] },
-    reachL: { la: [-130, -160], ra: [60, 20], ll: [-20, 5], rl: [25, -5] },
-    reachR: { la: [-60, -20], ra: [130, 160], ll: [-25, 5], rl: [20, -5] },
-    grip: { la: [-150, -170], ra: [150, 170], ll: [-15, 5], rl: [15, -5] },
-    fall: { la: [-130, -100], ra: [130, 100], ll: [-35, 20], rl: [40, -20] },
-    d1: { la: [-140, -160], ra: [140, 160], ll: [-42, -15], rl: [42, 15] },
-    d2: { la: [-35, 35], ra: [150, 170], ll: [-18, 0], rl: [10, -6], hx: -1 },
-    d3: { la: [-150, -170], ra: [35, -35], ll: [-10, 6], rl: [18, 0], hx: 1 },
-    d4: { la: [-35, 35], ra: [85, 95], ll: [-22, 0], rl: [26, 0] },
-    d5: { la: [-120, -170], ra: [35, -35], ll: [-15, 0], rl: [15, 0], hx: -1 },
-    d6: { la: [-90, -90], ra: [90, 90], ll: [-12, 0], rl: [12, 0], back: true },
-    d7: { la: [-95, -90], ra: [95, 90], ll: [-38, -10], rl: [38, 10] },
-  };
-  const DANCE = ['d1', 'd1', 'd2', 'd3', 'd2', 'd3', 'd4', 'd4', 'd5', 'd6', 'd7', 'd7', 'd2', 'd3', 'd1', 'd1'];
 
-  let cv, g, buf, b, W, H, scale, raf = 0, last = 0, st = null, audio = null, best = 0;
-  const off = document.createElement('canvas');
-  off.width = 40; off.height = 44;
-  const oc = off.getContext('2d');
-  const sil = document.createElement('canvas');
-  sil.width = 40; sil.height = 44;
-  const sc = sil.getContext('2d');
+  let cv, g, buf, b, W, H, scale, raf = 0, last = 0, st = null, ch = null, audio = null, best = 0;
   const $ = id => document.getElementById(id);
-
   const rnd = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
   const clamp = (v, a, z) => Math.max(a, Math.min(z, v));
-  const holdY = i => 16 + i * STEP + (i > TREE_TOP ? 16 : 0);
-  const meterAt = wy => Math.max(0, (wy - 16) / STEP);
+
+  // ряды зацепок: на дереве от земли, выше платформы — заново от её уровня (как от земли)
+  const PLAT_Y = -36 - TREE_TOP * STEP;
+  const rowY = i => i <= TREE_TOP ? -36 - i * STEP : PLAT_Y - 36 - (i - TREE_TOP - 1) * STEP;
+  const meters = y => Math.max(0, Math.round((-y - 36) / STEP));
+
+  function side(i) {
+    if (i < 0) return i % 2 ? -1 : 1;
+    while (st.sides.length <= i) {
+      const prev = st.sides[st.sides.length - 1] || 1;
+      st.sides.push(Math.random() < 0.6 ? -prev : prev);
+    }
+    return st.sides[i];
+  }
+
+  function hold(i) {
+    const s = side(i), same = s === side(i - 1);
+    const x = s * (same ? 4 + Math.round(rnd(i)) : 9 + Math.round(rnd(i) * 3));
+    const y = rowY(i) + Math.round(rnd(i + 50) * 2 - 1);
+    return y >= 0 ? { x: s * 4, y: 0, side: s, ground: true } : { x, y, side: s };
+  }
+
+  // выступы ног тянутся за стороной зацепок выше; после танца нижние ряды — это сама платформа
+  function foot(j, s) {
+    const y = rowY(j);
+    const floor = st.afterTree ? PLAT_Y : 0;
+    if (y >= floor) return { x: s * 4, y: floor, ground: true };
+    return { x: side(j + 2) * 6 + (s < 0 ? -2 : 2) + Math.round(rnd(j * 3 + s) * 2 - 1), y: y + Math.round(rnd(j * 5)) };
+  }
 
   function mix(c1, c2, k) {
     const p = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
@@ -70,32 +69,21 @@ const Game = (() => {
     return [SKY[SKY.length - 1][1], SKY[SKY.length - 1][2]];
   }
 
-  function side(i) {
-    if (i === TREE_TOP) return 0;
-    while (st.sides.length <= i) {
-      const prev = st.sides[st.sides.length - 1] || 1;
-      st.sides.push(Math.random() < 0.6 ? -prev : prev);
-    }
-    return st.sides[i] || 1;
-  }
-
-  function anchor(hold) {
-    if (hold === 0) return 9;
-    if (hold === TREE_TOP) return holdY(TREE_TOP) + 9;
-    return holdY(hold) - 16;
-  }
-
   function reset() {
     st = {
-      mode: 'climb', hold: 0, sides: [1], stamina: 100, camY: -6, charY: anchor(0), fromY: anchor(0), tween: 1,
-      side: 1, birds: [], feathers: [], shake: 0, bonk: 0, t: 0, danceT: 0, fallV: 0, fallT: 0, msgT: 0, reached: 0,
+      mode: 'climb', sides: [1], stamina: 100, camY: 0, queue: null, reached: 0, afterTree: false,
+      birds: [], feathers: [], shake: 0, bonk: 0, t: 0, fallT: 0, danceT: 0,
     };
+    ch = Char.create(hold, foot);
+    ch.onDone = onStepDone;
+    ch.hangAt(1);
+    st.camY = Math.min(ch.hip.y - H * 0.6, -H * 0.85);
   }
 
   function resize() {
     const w = cv.clientWidth, h = cv.clientHeight;
     if (!w || !h) return;
-    scale = Math.max(2, Math.round(w / 130));
+    scale = Math.max(2, Math.round(w / 195));
     W = Math.ceil(w / scale);
     H = Math.ceil(h / scale);
     buf.width = W; buf.height = H;
@@ -104,73 +92,12 @@ const Game = (() => {
     b.imageSmoothingEnabled = false;
   }
 
-  const sy = wy => Math.round(H - (wy - st.camY));
-
-  function px(c, x, y, w, h, col) {
-    c.fillStyle = col;
-    c.fillRect(Math.round(x), Math.round(y), w, h);
-  }
-
-  function limb(c, x, y, [a1, a2], l1, l2, w, col, end, endCol) {
-    const r = Math.PI / 180;
-    const x1 = x + Math.sin(a1 * r) * l1, y1 = y + Math.cos(a1 * r) * l1;
-    const x2 = x1 + Math.sin(a2 * r) * l2, y2 = y1 + Math.cos(a2 * r) * l2;
-    for (const [sx, sy0, ex, ey] of [[x, y, x1, y1], [x1, y1, x2, y2]]) {
-      const n = Math.ceil(Math.hypot(ex - sx, ey - sy0) * 2) || 1;
-      for (let i = 0; i <= n; i++) px(c, sx + (ex - sx) * i / n - w / 2, sy0 + (ey - sy0) * i / n - w / 2, w, w, col);
-    }
-    if (end) px(c, x2 - end[0] / 2, y2 - end[1] / 2, end[0], end[1], endCol);
-  }
-
-  function renderChar(name, back, wink) {
-    const p = POSES[name];
-    const isBack = back || p.back;
-    oc.clearRect(0, 0, 40, 44);
-    const x = 20 + (p.hx || 0), y = 30;
-    limb(oc, x - 2, y, p.ll, 4, 4, 3, PAL.pants, [4, 2], PAL.shoe);
-    limb(oc, x + 2, y, p.rl, 4, 4, 3, PAL.pants, [4, 2], PAL.shoe);
-    px(oc, x - 4, y - 8, 8, 9, PAL.jacket);
-    px(oc, x - 4, y - 8, 1, 9, PAL.jacketD);
-    px(oc, x + 3, y - 8, 1, 9, PAL.jacketD);
-    if (isBack) px(oc, x, y - 7, 1, 8, PAL.jacketD);
-    else {
-      px(oc, x - 1, y - 8, 3, 5, PAL.shirt);
-      px(oc, x, y - 3, 1, 3, PAL.shirt);
-    }
-    const hx = x - 5, hy = y - 18;
-    px(oc, hx + 1, hy + 2, 9, 8, isBack ? PAL.hair : PAL.skin);
-    px(oc, hx, hy, 11, 3, PAL.hair);
-    px(oc, hx + 1, hy - 1, 8, 1, PAL.hair);
-    px(oc, hx, hy + 3, 1, isBack ? 6 : 4, PAL.hairD);
-    px(oc, hx + 10, hy + 3, 1, isBack ? 6 : 4, PAL.hairD);
-    if (isBack) px(oc, hx + 2, hy + 8, 7, 2, PAL.hairD);
-    else {
-      px(oc, hx + 1, hy + 3, 3, 1, PAL.hair);
-      px(oc, hx + 6, hy + 3, 2, 1, PAL.hair);
-      px(oc, hx + 3, hy + 5, 1, 2, PAL.eye);
-      if (wink) px(oc, hx + 6, hy + 6, 2, 1, PAL.eye);
-      else px(oc, hx + 7, hy + 5, 1, 2, PAL.eye);
-      px(oc, hx + 4, hy + 8, 3, 1, PAL.skinD);
-    }
-    limb(oc, x - 3, y - 7, p.la, 5, 5, 2, PAL.jacket, [2, 2], PAL.skin);
-    limb(oc, x + 3, y - 7, p.ra, 5, 5, 2, PAL.jacket, [2, 2], PAL.skin);
-    sc.clearRect(0, 0, 40, 44);
-    sc.globalCompositeOperation = 'source-over';
-    sc.drawImage(off, 0, 0);
-    sc.globalCompositeOperation = 'source-in';
-    sc.fillStyle = PAL.outline;
-    sc.fillRect(0, 0, 40, 44);
-  }
-
-  function drawChar(name, x, y, back, wink) {
-    renderChar(name, back, wink);
-    const ox = Math.round(x - 20), oy = Math.round(y - 30);
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) b.drawImage(sil, ox + dx, oy + dy);
-    b.drawImage(off, ox, oy);
-  }
+  const SX = x => Math.round(x + W / 2);
+  const SY = y => Math.round(y - st.camY);
+  function px(x, y, w, h, col) { b.fillStyle = col; b.fillRect(Math.round(x), Math.round(y), w, h); }
 
   function drawSky() {
-    const m = meterAt(st.camY + H / 2);
+    const m = meters(st.camY + H / 2);
     const [top, bottom] = skyAt(m);
     const gr = b.createLinearGradient(0, 0, 0, H);
     gr.addColorStop(0, top);
@@ -180,41 +107,43 @@ const Game = (() => {
     const stars = clamp((m - 430) / 220, 0, 1);
     if (stars > 0) {
       b.globalAlpha = stars;
-      for (let i = 0; i < 70; i++) {
-        const x = Math.floor(rnd(i) * W), y = Math.floor((rnd(i + 99) * H * 3 + st.camY * 0.05) % H);
-        px(b, x, y, 1, 1, rnd(i + 7) > 0.85 ? '#ffe9a8' : '#ffffff');
+      for (let i = 0; i < 90; i++) {
+        const x = Math.floor(rnd(i) * W), y = Math.floor(((rnd(i + 99) * H * 3 - st.camY * 0.05) % H + H) % H);
+        px(x, y, 1, 1, rnd(i + 7) > 0.85 ? '#ffe9a8' : '#ffffff');
       }
       b.globalAlpha = 1;
     }
     if (m > SPACE_FROM + 30) {
-      const py = Math.round(H * 0.3 + ((st.camY * 0.04) % (H * 1.6)) - H * 0.4);
+      const py = Math.round(((H * 0.3 - st.camY * 0.04) % (H * 1.6) + H * 1.6) % (H * 1.6) - H * 0.3);
       b.fillStyle = '#d98b4e';
-      b.beginPath(); b.arc(W * 0.78, py, 9, 0, Math.PI * 2); b.fill();
-      px(b, W * 0.78 - 16, py, 32, 1, '#f0c89a');
+      b.beginPath(); b.arc(W * 0.8, py, 12, 0, Math.PI * 2); b.fill();
+      px(W * 0.8 - 22, py, 44, 1, '#f0c89a');
       b.fillStyle = '#4f8fd9';
-      b.beginPath(); b.arc(W * 0.15, py + H * 0.7, 6, 0, Math.PI * 2); b.fill();
+      b.beginPath(); b.arc(W * 0.15, py + H * 0.7, 8, 0, Math.PI * 2); b.fill();
     }
-    if (st.camY < 260) {
-      const base = sy(0);
-      for (let x = 0; x < W; x++) {
-        const h1 = 18 + Math.sin(x * 0.07) * 6 + Math.sin(x * 0.19) * 3;
-        px(b, x, base - h1 + st.camY * 0.25, 1, h1 + 40, '#8cc79a');
-        const h2 = 9 + Math.sin(x * 0.11 + 2) * 4;
-        px(b, x, base - h2 + st.camY * 0.1, 1, h2 + 40, '#6fb37f');
+    if (st.camY > -700) {
+      for (const [par, base, amp, col, f] of [[0.15, 34, 24, '#9cc3e4', 0.031], [0.3, 14, 18, '#7aa5cf', 0.047]]) {
+        const gy = -st.camY * par + H * 0.62;
+        for (let x = 0; x < W; x++) {
+          const hh = base + Math.abs(Math.sin(x * f + par * 9)) * amp + Math.sin(x * f * 3.7) * 3;
+          px(x, gy - hh, 1, H, col);
+        }
       }
     }
   }
 
-  function cloudShape(x, y, s, col) {
-    px(b, x, y, 14 * s, 4 * s, col);
-    px(b, x + 3 * s, y - 3 * s, 7 * s, 3 * s, col);
-    px(b, x + 8 * s, y - 2 * s, 5 * s, 2 * s, col);
+  function cloud(x, y, s, alpha) {
+    b.globalAlpha = alpha;
+    px(x - 1, y - 1, 26 * s, 8 * s, '#b7d9f2');
+    px(x, y, 24 * s, 6 * s, '#ffffff');
+    px(x + 5 * s, y - 4 * s, 12 * s, 5 * s, '#ffffff');
+    b.globalAlpha = 1;
   }
 
   function drawClouds(front) {
     const band = 46;
     for (let k = Math.floor(st.camY / band) - 1; k < Math.floor((st.camY + H) / band) + 2; k++) {
-      const m = meterAt(k * band);
+      const m = meters(k * band);
       if (m < CLOUDS_FROM || m > CLOUDS_TO) continue;
       const dens = Math.sin(Math.PI * (m - CLOUDS_FROM) / (CLOUDS_TO - CLOUDS_FROM));
       for (let j = 0; j < 3; j++) {
@@ -222,133 +151,141 @@ const Game = (() => {
         if (rnd(id) > dens * 0.9 || (rnd(id * 3) < 0.35) !== front) continue;
         const s = 1 + Math.floor(rnd(id * 5) * 2);
         const dir = rnd(id * 11) > 0.5 ? 1 : -1;
-        const span = W + 40 * s;
-        const x = ((rnd(id * 13) * span + st.t * (4 + rnd(id) * 6) * dir) % span + span) % span - 20 * s;
-        b.globalAlpha = front ? 0.92 : 0.75;
-        cloudShape(x, sy(k * band + rnd(id * 17) * band), s, '#ffffff');
+        const span = W + 60 * s;
+        const x = ((rnd(id * 13) * span + st.t * (4 + rnd(id) * 6) * dir) % span + span) % span - 30 * s;
+        cloud(x, SY(k * band + rnd(id * 17) * band), s, front ? 0.92 : 0.75);
       }
     }
-    b.globalAlpha = 1;
   }
 
   function drawWorld() {
-    const cx = Math.round(W / 2);
-    const lo = st.camY - 40, hi = st.camY + H + 40;
-    const top = holdY(TREE_TOP);
-    const space = clamp((meterAt(st.camY) - 450) / 200, 0, 1);
-    for (let wy = Math.max(0, Math.floor(lo / 4) * 4); wy < hi; wy += 4) {
-      const r = wy / 4;
-      const hw = 24 + Math.floor(rnd(r * 0.37) * 4) + Math.round(Math.sin(r * 0.21) * 4);
-      const far = wy < top - 2;
-      for (let x = cx - hw; x < cx + hw; x += 4) {
-        const v = rnd(r * 31 + x);
-        let col = v < 0.2 ? '#6b6f7a' : v > 0.85 ? '#9a9ea8' : '#80848f';
+    const ox = W / 2;
+    const top = st.camY - 4, bottom = st.camY + H + 4;
+    const space = clamp((meters(st.camY) - 450) / 200, 0, 1);
+    for (let y = Math.floor(top / 2) * 2; y < Math.min(0, bottom); y += 2) {
+      const r = Math.floor(y / 2);
+      const hw = 34 + Math.round(Math.sin(r * 0.13) * 5 + Math.sin(r * 0.41) * 2 + rnd(r) * 2);
+      const far = y > PLAT_Y;
+      const sy = SY(y);
+      const edge = far ? '#6e86a3' : '#2a2433';
+      px(ox - hw - 1, sy, 1, 2, edge);
+      px(ox + hw, sy, 1, 2, edge);
+      for (let x = -hw; x < hw; x += 3) {
+        const v = rnd(Math.floor(y / 3) * 57 + Math.floor(x / 3) * 13);
+        let col = v < 0.18 ? '#6c6878' : v > 0.86 ? '#a7a3b2' : '#8a8697';
+        if (x < -hw + 4) col = '#a7a3b2';
+        if (x > hw - 5) col = '#5d596a';
         if (far) col = mix(col, '#a9c7e6', 0.55);
         else if (space) col = mix(col, '#3f3658', space * 0.8);
-        px(b, x, sy(wy) - 4, 4, 4, col);
+        px(ox + x, sy, 3, 2, col);
       }
     }
-    if (lo < 0) {
-      const gy = sy(0);
-      px(b, 0, gy, W, H, '#6b4a2b');
-      px(b, 0, gy, W, 3, '#4caf50');
-      for (let x = 2; x < W; x += 9) px(b, x, gy - 2, 2, 2, rnd(x) > 0.5 ? '#3d9142' : '#f2d14b');
-    }
-    if (lo < top) {
-      for (let wy = Math.max(0, lo); wy < Math.min(top, hi); wy += 2) {
-        const yy = sy(wy) - 2;
-        px(b, cx - 8, yy, 16, 2, '#7a4f2c');
-        if (rnd(Math.floor(wy / 2)) > 0.7) px(b, cx - 6 + Math.floor(rnd(wy) * 10), yy, 2, 2, '#5c3a1e');
+    if (bottom > PLAT_Y) {
+      for (let y = Math.max(PLAT_Y, Math.floor(top)); y < Math.min(0, bottom); y += 2) {
+        const sy = SY(y);
+        px(ox - 15, sy, 1, 2, '#2a1a10');
+        px(ox + 14, sy, 1, 2, '#2a1a10');
+        px(ox - 14, sy, 28, 2, '#7a4f2c');
+        px(ox - 14, sy, 3, 2, '#94633a');
+        px(ox + 10, sy, 4, 2, '#5c3a1e');
+        if (rnd(Math.floor(y / 2)) > 0.72) px(ox - 9 + Math.floor(rnd(y) * 18), sy, 3, 2, '#5c3a1e');
       }
-      px(b, cx - 12, sy(0) - 3, 24, 3, '#7a4f2c');
-      for (let i = 2; i < TREE_TOP; i += 3) {
-        if (holdY(i) < lo || holdY(i) > hi) continue;
-        const s = rnd(i * 3.1) > 0.5 ? 1 : -1;
-        px(b, cx + s * 8 - (s < 0 ? 6 : 0), sy(holdY(i) + 5), 6, 4, '#3f9b47');
-      }
-      const py = sy(top);
-      px(b, cx - 34, py, 70, 4, '#7a4f2c');
-      px(b, cx - 34, py + 3, 70, 1, '#5c3a1e');
-      for (const [dx, w] of [[-40, 14], [-20, 10], [24, 12], [34, 12]]) {
-        px(b, cx + dx, py - 5, w, 6, '#3f9b47');
-        px(b, cx + dx + 2, py - 7, w - 4, 2, '#5cbf5f');
+      const py = SY(PLAT_Y);
+      px(ox - 46, py - 1, 92, 7, '#2a1a10');
+      px(ox - 45, py, 90, 5, '#7a4f2c');
+      px(ox - 45, py, 90, 1, '#94633a');
+      for (const [dx, w] of [[-52, 16], [-30, 12], [24, 14], [40, 16]]) {
+        px(ox + dx - 1, py - 8, w + 2, 9, '#1f4a24');
+        px(ox + dx, py - 7, w, 7, '#3f9b47');
+        px(ox + dx + 2, py - 7, w - 4, 2, '#5cbf5f');
       }
     }
-    const from = Math.max(1, Math.floor((lo - 16) / STEP) - 2), to = Math.ceil((hi - 16) / STEP) + 2;
-    for (let i = from; i <= to; i++) {
+    for (let i = -3; i < ch.k + 40; i++) {
       if (i === TREE_TOP) continue;
-      const s = side(i), y = sy(holdY(i));
+      const h = hold(i);
+      if (h.ground) continue;
+      const sx = SX(h.x), sy = SY(h.y);
+      if (sy < -10 || sy > H + 10) continue;
       if (i < TREE_TOP) {
-        const len = 10 + Math.floor(rnd(i) * 6);
-        px(b, s > 0 ? cx + 8 : cx - 8 - len, y - 1, len, 3, '#7a4f2c');
-        px(b, s > 0 ? cx + 6 + len : cx - 12 - len, y - 5, 7, 5, '#3f9b47');
-        px(b, s > 0 ? cx + 7 + len : cx - 11 - len, y - 6, 5, 1, '#5cbf5f');
+        const out = h.x < 0 ? -1 : 1;
+        px(sx - 4, sy - 2, 9, 5, '#2a1a10');
+        px(sx - 3, sy - 1, 7, 3, '#9b6a3e');
+        px(sx - 3, sy - 1, 5, 1, '#c08a55');
+        px(sx + out * 4 - (out < 0 ? 3 : 0), sy - 6, 4, 4, '#3f9b47');
       } else {
-        const hx = cx + s * 7 - 3;
-        px(b, hx, y - 2, 6, 4, mix('#c9ccd4', '#8e86b0', space));
-        px(b, hx, y + 1, 6, 1, mix('#5f636d', '#2c2640', space));
-        px(b, hx + 1, y - 2, 3, 1, '#ffffff');
+        px(sx - 3, sy - 2, 7, 5, '#2a2433');
+        px(sx - 2, sy - 1, 5, 3, mix('#c9b79c', '#9a8fbf', space));
+        px(sx - 2, sy - 1, 3, 1, mix('#efe2c8', '#c9c2ea', space));
+        px(sx - 2, sy + 1, 5, 1, mix('#8c7a62', '#5a5180', space));
       }
+    }
+    for (let j = -3; j < ch.k + 40; j++) {
+      for (const s of [-1, 1]) {
+        const f = foot(j, s);
+        const sx = SX(f.x), sy = SY(f.y);
+        // левая нога ходит по чётным рядам, правая по нечётным — рисуем только используемые выступы
+        if (f.ground || (j % 2 === 0) !== (s < 0) || sy < -10 || sy > H + 10) continue;
+        px(sx - 2, sy - 1, 5, 3, j < TREE_TOP ? '#2a1a10' : '#2a2433');
+        px(sx - 1, sy, 3, 1, j < TREE_TOP ? '#6b4426' : '#8f7f68');
+      }
+    }
+    const gy = SY(0);
+    if (gy < H) {
+      px(0, gy, W, H, '#6b4a2b');
+      px(0, gy - 1, W, 1, '#2a2433');
+      px(0, gy, W, 3, '#5cbf5f');
+      px(0, gy + 3, W, 1, '#3d9142');
+      for (let x = 1; x < W; x += 7) px(x, gy - 2, 1, 2, rnd(x) > 0.8 ? '#f2d14b' : '#5cbf5f');
     }
   }
 
-  function birdPos(bd) {
-    const cy = sy(st.charY), cx = Math.round(W / 2) + st.side;
-    const slots = [[0, -23], [bd.slotSide * 7, -11]];
-    const [tx, ty] = slots[bd.slot];
-    return [cx + tx, cy + ty];
-  }
+  function headPos() { return [SX(ch.hip.x), SY(ch.hip.y) - 31]; }
 
   function drawBird(bd) {
-    const ufo = meterAt(st.charY) >= SPACE_FROM;
+    const ufo = meters(ch.hip.y) >= SPACE_FROM;
     const x = Math.round(bd.x), y = Math.round(bd.y);
     const flap = bd.state !== 'sit' && Math.floor(st.t * 12) % 2;
     if (ufo) {
-      px(b, x - 5, y - 1, 10, 3, '#b8c1cc');
-      px(b, x - 2, y - 3, 4, 2, '#7fe0ff');
-      px(b, x - 4, y + 2, 1, 1, Math.floor(st.t * 6) % 2 ? '#ffde59' : '#ff5c7a');
-      px(b, x + 3, y + 2, 1, 1, Math.floor(st.t * 6) % 2 ? '#ff5c7a' : '#ffde59');
+      px(x - 6, y - 2, 12, 4, '#15161b');
+      px(x - 5, y - 1, 10, 2, '#b8c1cc');
+      px(x - 2, y - 4, 4, 3, '#7fe0ff');
+      px(x - 4, y + 1, 1, 1, Math.floor(st.t * 6) % 2 ? '#ffde59' : '#ff5c7a');
+      px(x + 3, y + 1, 1, 1, Math.floor(st.t * 6) % 2 ? '#ff5c7a' : '#ffde59');
       return;
     }
     const f = bd.face;
-    px(b, x - 5, y - 3, 10, 6, '#15161b');
-    px(b, x + f * 3 - 2, y - 5, 4, 4, '#15161b');
-    px(b, x - 4, y - 2, 8, 4, '#eef1f5');
-    px(b, x + f * 3 - 1, y - 4, 3, 3, '#eef1f5');
-    px(b, x + f * 3 + (f > 0 ? 1 : -1), y - 3, 1, 1, '#15161b');
-    px(b, x + f * 5 - (f < 0 ? 1 : 0), y - 3, 2, 1, '#f2a33a');
-    px(b, x - f * 5 - (f > 0 ? 1 : 0), y - 1, 2, 2, '#8a93a1');
-    px(b, x - 3, y - (flap ? 5 : 1), 5, flap ? 3 : 2, '#b4bcc8');
-    if (bd.state === 'sit') { px(b, x - 2, y + 2, 1, 2, '#f2a33a'); px(b, x + 1, y + 2, 1, 2, '#f2a33a'); }
-  }
-
-  function spawnBird() {
-    const used = st.birds.map(bd => bd.slot);
-    const slot = used.includes(0) ? 1 : 0;
-    const from = Math.random() < 0.5 ? -1 : 1;
-    st.birds.push({ slot, slotSide: from, face: -from, state: 'fly', t: 0, x: from > 0 ? W + 8 : -8, y: H * 0.2, sx: from > 0 ? W + 8 : -8, sy: H * 0.2 });
+    px(x - 5, y - 3, 10, 6, '#15161b');
+    px(x + f * 3 - 2, y - 5, 4, 4, '#15161b');
+    px(x - 4, y - 2, 8, 4, '#eef1f5');
+    px(x + f * 3 - 1, y - 4, 3, 3, '#eef1f5');
+    px(x + f * 3 + (f > 0 ? 1 : -1), y - 3, 1, 1, '#15161b');
+    px(x + f * 5 - (f < 0 ? 1 : 0), y - 3, 2, 1, '#f2a33a');
+    px(x - 3, y - (flap ? 5 : 1), 5, flap ? 3 : 2, '#b4bcc8');
+    if (bd.state === 'sit') { px(x - 2, y + 2, 1, 2, '#f2a33a'); px(x + 1, y + 2, 1, 2, '#f2a33a'); }
   }
 
   function updateBirds(dt) {
-    const m = st.hold;
-    if (st.mode === 'climb' && m >= BIRDS_FROM) {
-      const max = m > 350 ? 2 : 1;
+    const m = ch.k;
+    if (st.mode === 'climb' && m >= BIRDS_FROM && st.birds.length < 1) {
       const rate = Math.min(0.45, 0.07 + (m - BIRDS_FROM) * 0.0008);
-      if (st.birds.length < max && Math.random() < rate * dt) spawnBird();
+      if (Math.random() < rate * dt) {
+        const from = Math.random() < 0.5 ? -1 : 1;
+        st.birds.push({ state: 'fly', t: 0, face: -from, sx: from > 0 ? W + 8 : -8, sy: H * 0.25, x: 0, y: 0 });
+      }
     }
+    const [hx, hy] = headPos();
     for (const bd of st.birds) {
       bd.t += dt;
       if (bd.state === 'fly') {
-        const [tx, ty] = birdPos(bd);
         const k = Math.min(1, bd.t / 0.9);
-        bd.x = bd.sx + (tx - bd.sx) * k;
-        bd.y = bd.sy + (ty - bd.sy) * k - Math.sin(k * Math.PI) * 10;
+        bd.x = bd.sx + (hx - bd.sx) * k;
+        bd.y = bd.sy + (hy - 3 - bd.sy) * k - Math.sin(k * Math.PI) * 12;
         if (k >= 1) { bd.state = 'sit'; haptic('soft'); }
       } else if (bd.state === 'sit') {
-        [bd.x, bd.y] = birdPos(bd);
+        bd.x = hx; bd.y = hy - 3;
       } else {
         bd.x += bd.vx * dt;
-        bd.y -= 70 * dt;
+        bd.y -= 80 * dt;
       }
     }
     st.birds = st.birds.filter(bd => bd.state !== 'leave' || bd.t < 1.2);
@@ -357,9 +294,9 @@ const Game = (() => {
   function shoo(bd) {
     bd.state = 'leave';
     bd.t = 0;
-    bd.vx = (bd.x < W / 2 ? -1 : 1) * 90;
+    bd.vx = (bd.x < W / 2 ? -1 : 1) * 100;
     bd.face = bd.vx > 0 ? 1 : -1;
-    for (let i = 0; i < 5; i++) st.feathers.push({ x: bd.x, y: bd.y, vx: (Math.random() - 0.5) * 40, vy: -Math.random() * 30, life: 0.8 });
+    for (let i = 0; i < 6; i++) st.feathers.push({ x: bd.x, y: bd.y, vx: (Math.random() - 0.5) * 50, vy: -Math.random() * 30, life: 0.8 });
     haptic('light');
   }
 
@@ -371,37 +308,65 @@ const Game = (() => {
     el.classList.add('show');
   }
 
-  function grab(next, s) {
-    st.fromY = st.charY;
-    st.hold = next;
-    st.tween = 0;
-    if (s) st.side = s;
-    st.stamina = Math.min(100, st.stamina + Math.max(4, 8 - next * 0.004));
+  function stepDur() { return Math.max(0.28, 0.42 - ch.k * 0.0002); }
+
+  function tryClimb(tapSide) {
+    const next = hold(ch.k + 1);
+    if (next.side !== tapSide) {
+      st.stamina -= 12;
+      st.shake = 0.25;
+      haptic('heavy');
+      return;
+    }
+    ch.climbUp(stepDur());
+    st.stamina = Math.min(100, st.stamina + Math.max(4, 8 - ch.k * 0.004));
     haptic('light');
-    for (const [m, text] of MILESTONES) if (next === m && st.reached < m) flash(text);
-    st.reached = Math.max(st.reached, next);
-    if (next === TREE_TOP) startDance();
   }
 
-  function startDance() {
+  function onStepDone() {
+    const k = ch.k;
+    for (const [m, text] of MILESTONES) if (k === m && st.reached < m) flash(text);
+    st.reached = Math.max(st.reached, k);
+    if (k === TREE_TOP) return startTopOfTree();
+    if (st.queue && st.mode === 'climb') {
+      const s = st.queue;
+      st.queue = null;
+      tryClimb(s);
+    }
+  }
+
+  // вылез на платформу: встаёт (таз плавно поднимается из виса) и танцует под первые 4 секунды песни
+  function startTopOfTree() {
     st.mode = 'dance';
-    st.danceT = 0;
+    st.queue = null;
     st.stamina = 100;
     for (const bd of st.birds) if (bd.state !== 'leave') shoo(bd);
+    const hip = { ...ch.hip };
+    ch.stand(0, PLAT_Y);
+    ch.hip = hip;
+    st.danceT = 0;
     if (!audio) audio = new Audio('audio/dance.mp3');
     audio.currentTime = 0;
     audio.play().catch(() => {});
   }
 
-  function stopAudio() {
+  function endDance() {
     if (audio) { audio.pause(); audio.currentTime = 0; }
+    st.afterTree = true;
+    st.mode = 'climb';
+    ch.onDone = onStepDone;
+    ch.hangAt(TREE_TOP + 2);
+    flash('Теперь гора');
+    st.reached = Math.max(st.reached, TREE_TOP + 2);
   }
 
   function fall() {
     st.mode = 'fall';
-    st.fallV = 0;
     st.fallT = 0;
+    st.queue = null;
     for (const bd of st.birds) if (bd.state !== 'leave') shoo(bd);
+    // с горы падает на платформу дерева, с дерева — на землю
+    ch.fall(st.afterTree ? PLAT_Y : 0);
     haptic('error');
   }
 
@@ -418,11 +383,11 @@ const Game = (() => {
   }
 
   function onTap(e) {
-    if (!st || st.mode !== 'climb') return;
+    if (!st || (st.mode !== 'climb')) return;
     e.preventDefault();
     const r = cv.getBoundingClientRect();
     const bx = (e.clientX - r.left) / r.width * W, by = (e.clientY - r.top) / r.height * H;
-    const hit = st.birds.find(bd => bd.state !== 'leave' && Math.hypot(bd.x - bx, bd.y - by) < 12);
+    const hit = st.birds.find(bd => bd.state !== 'leave' && Math.hypot(bd.x - bx, bd.y - by) < 14);
     if (hit) return shoo(hit);
     if (st.birds.some(bd => bd.state === 'sit')) {
       st.bonk = 0.3;
@@ -431,68 +396,50 @@ const Game = (() => {
       return;
     }
     const tapSide = bx < W / 2 ? -1 : 1;
-    const need = side(st.hold + 1);
-    if (need === 0 || need === tapSide) grab(st.hold + 1, tapSide);
-    else {
-      st.stamina -= 12;
-      st.shake = 0.25;
-      haptic('heavy');
-    }
+    // во время перехвата тап не теряется: запоминаем один следующий
+    if (ch.mode === 'climb') { st.queue = tapSide; return; }
+    tryClimb(tapSide);
   }
 
   function update(dt) {
     st.t += dt;
-    st.tween = Math.min(1, st.tween + dt / 0.12);
     st.shake = Math.max(0, st.shake - dt);
     st.bonk = Math.max(0, st.bonk - dt);
-    if (st.mode === 'fall') {
-      st.fallT += dt;
-      st.fallV += 520 * dt;
-      st.charY -= st.fallV * dt;
-      if (st.fallT > 1.3) over();
-    } else if (st.mode !== 'over') {
-      const k = 1 - Math.pow(1 - st.tween, 3);
-      st.charY = st.fromY + (anchor(st.hold) - st.fromY) * k;
-    }
+    ch.update(dt);
     if (st.mode === 'climb') {
       const sitting = st.birds.some(bd => bd.state === 'sit');
-      const drain = 6 + Math.min(16, st.hold * 0.025);
-      st.stamina -= drain * dt * (sitting ? 1.7 : 1) * (st.hold === 0 ? 0 : 1);
+      const drain = 6 + Math.min(14, ch.k * 0.02);
+      if (ch.k > 1 || ch.mode === 'climb') st.stamina -= drain * dt * (sitting ? 1.7 : 1);
       if (st.stamina <= 0) { st.stamina = 0; fall(); }
-    }
-    if (st.mode === 'dance') {
+    } else if (st.mode === 'dance') {
       st.danceT += dt;
-      if (st.danceT >= DANCE_SEC) { stopAudio(); st.mode = 'climb'; st.fromY = st.charY; }
+      if (st.danceT > 0.45 && ch.mode === 'stand' && !ch.danceBase) {
+        ch.onDone = endDance;
+        ch.dance(0, PLAT_Y);
+      }
+    } else if (st.mode === 'fall') {
+      st.fallT += dt;
+      if (st.fallT > 1.4) over();
     }
     updateBirds(dt);
     for (const f of st.feathers) { f.x += f.vx * dt; f.y += f.vy * dt; f.vy += 40 * dt; f.life -= dt; }
     st.feathers = st.feathers.filter(f => f.life > 0);
-    const target = st.mode === 'fall' ? st.camY - st.fallV * dt * 0.35 : Math.max(-6, st.charY - H * 0.36);
-    st.camY += (target - st.camY) * Math.min(1, dt * 8);
+    const target = st.mode === 'fall' ? st.camY + (ch.hip.y - H * 0.5 - st.camY) * 0.35 : Math.min(ch.hip.y - H * 0.6, -H * 0.85);
+    st.camY += (target - st.camY) * Math.min(1, dt * 6);
   }
 
   function draw() {
     drawSky();
     drawClouds(false);
     drawWorld();
-    const cx = Math.round(W / 2) + (st.mode === 'dance' ? 0 : st.side) + (st.shake ? Math.round(Math.sin(st.t * 80) * 2) : 0);
-    const cy = sy(st.charY) + (st.bonk ? -1 : 0);
-    let pose = 'grip', back = true, wink = false;
-    if (st.mode === 'dance') {
-      const i = Math.min(DANCE.length - 1, Math.floor(st.danceT / (DANCE_SEC / DANCE.length)));
-      pose = DANCE[i];
-      back = false;
-      wink = i >= DANCE.length - 2;
-      drawChar(pose, cx, cy + (i % 2 ? 1 : 0), back, wink);
-    } else {
-      if (st.mode === 'fall') { pose = Math.floor(st.t * 10) % 2 ? 'fall' : 'grip'; back = false; }
-      else if (st.hold === 0 || st.hold === TREE_TOP) pose = 'stand';
-      else pose = st.side < 0 ? 'reachL' : 'reachR';
-      drawChar(pose, cx, cy, back, wink);
+    const shake = st.shake ? Math.round(Math.sin(st.t * 80) * 2) : 0;
+    ch.draw(b, -W / 2 - shake, st.camY);
+    if (st.bonk) {
+      const [hx, hy] = headPos();
+      for (let i = 0; i < 3; i++) px(hx - 7 + i * 7, hy - 6 - (i % 2) * 2, 2, 2, '#ffde59');
     }
-    if (st.bonk) for (let i = 0; i < 3; i++) px(b, cx - 6 + i * 6, cy - 26 - (i % 2) * 2, 2, 2, '#ffde59');
     for (const bd of st.birds) drawBird(bd);
-    for (const f of st.feathers) px(b, f.x, f.y, 2, 1, '#e8ecf2');
+    for (const f of st.feathers) px(f.x, f.y, 2, 1, '#e8ecf2');
     drawClouds(true);
     g.drawImage(buf, 0, 0, W * scale, H * scale);
   }
@@ -536,15 +483,15 @@ const Game = (() => {
   return {
     open() {
       if (!cv) init();
-      if (!st) { reset(); st.mode = 'ready'; }
       resize();
+      if (!st) { reset(); st.mode = 'ready'; }
       if (!raf) { last = performance.now(); raf = requestAnimationFrame(loop); }
     },
     close() {
       if (raf) cancelAnimationFrame(raf);
       raf = 0;
-      stopAudio();
-      if (st && st.mode === 'dance') { st.mode = 'climb'; st.fromY = st.charY; }
+      if (audio) { audio.pause(); audio.currentTime = 0; }
+      if (st && st.mode === 'dance') endDance();
     },
   };
 })();
