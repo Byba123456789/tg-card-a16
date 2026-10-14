@@ -21,7 +21,7 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; 
   <button id="bDance">Танец</button>
   <button id="bSlow">Медленно</button>
 </div>
-<script src="char.js?h=fb6c56df"></script>
+<script src="char.js?h=22ea0d71"></script>
 <script>
 const cv = document.getElementById('cv');
 const g = cv.getContext('2d');
@@ -33,12 +33,14 @@ const SIDES = [1, -1, 1, 1, 1, -1, -1, 1, -1, -1, -1, 1, 1, -1];
 const rnd = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 const sideOf = i => SIDES[((i % SIDES.length) + SIDES.length) % SIDES.length];
 const hold = i => {
-  const x = sideOf(i) * 11 + Math.round(rnd(i) * 2 - 1), y = -36 - i * STEP;
+  const x = sideOf(i) * (9 + Math.round(rnd(i) * 3)), y = -36 - i * STEP + Math.round(rnd(i + 50) * 2 - 1);
   return y >= 0 ? { x: sideOf(i) * 4, y: 0, side: sideOf(i), ground: true } : { x, y, side: sideOf(i) };
 };
 const foot = (j, side) => {
   const y = -36 - j * STEP;
-  return y >= 0 ? { x: side * 4, y: 0, ground: true } : { x: side * 5, y };
+  if (y >= 0) return { x: side * 4, y: 0, ground: true };
+  // выступы тянутся за стороной зацепок выше: на серии с одной стороны ноги идут рядом, «лесенкой»
+  return { x: hold(j + 2).side * 6 + (side < 0 ? -2 : 2) + Math.round(rnd(j * 3 + side) * 2 - 1), y: y + Math.round(rnd(j * 5)) };
 };
 const ch = Char.create(hold, foot);
 let climbing = false, slow = false, camY = -80, fallT = 0, t = 0;
@@ -59,11 +61,11 @@ function toGround() {
 
 function nextClimb() {
   if (!climbing || ch.mode !== 'hang') return;
-  ch.climbUp(0.8);
+  ch.climbUp(0.7);
 }
 ch.onDone = () => {
   if (ch.mode === 'stand') music.pause();
-  if (climbing) setTimeout(nextClimb, 120);
+  if (climbing) nextClimb();
 };
 
 function px(x, y, w, h, col) { b.fillStyle = col; b.fillRect(Math.round(x), Math.round(y), w, h); }
@@ -114,11 +116,11 @@ function drawWall() {
     if (h.ground) continue;
     const sx = ox + h.x, sy = h.y - camY;
     if (sy < -10 || sy > H + 10) continue;
-    px(sx - 5, sy - 2, 11, 7, '#2a2433');
-    px(sx - 4, sy - 1, 9, 5, '#c9b79c');
-    px(sx - 4, sy - 1, 6, 1, '#efe2c8');
-    px(sx - 4, sy + 3, 9, 1, '#8c7a62');
-    px(sx - 3, sy + 5, 8, 1, 'rgba(0,0,0,.25)');
+    px(sx - 3, sy - 2, 7, 5, '#2a2433');
+    px(sx - 2, sy - 1, 5, 3, '#c9b79c');
+    px(sx - 2, sy - 1, 3, 1, '#efe2c8');
+    px(sx - 2, sy + 1, 5, 1, '#8c7a62');
+    px(sx - 2, sy + 3, 5, 1, 'rgba(0,0,0,.25)');
   }
   for (let j = -3; j < ch.k + 30; j++) {
     for (const s of [-1, 1]) {
@@ -126,9 +128,10 @@ function drawWall() {
       const sx = ox + f.x, sy = f.y - camY;
       // левая нога ходит по чётным рядам, правая по нечётным — рисуем только используемые выступы
       if (f.ground || (j % 2 === 0) !== (s < 0) || sy < -10 || sy > H + 10) continue;
-      px(sx - 3, sy - 2, 7, 4, '#2a2433');
-      px(sx - 2, sy - 1, 5, 2, '#8f7f68');
-      px(sx - 2, sy - 1, 3, 1, '#b8a68a');
+      // выступ под зацепкой того же ряда не рисуем: нога встаёт на саму зацепку
+      if (Math.abs(f.x - hold(j).x) < 6) continue;
+      px(sx - 2, sy - 1, 5, 3, '#2a2433');
+      px(sx - 1, sy, 3, 1, '#8f7f68');
     }
   }
   const gy = -camY;
@@ -146,11 +149,12 @@ function frame(now) {
   frame.last = now;
   t += dt;
   ch.update(dt);
-  if (ch.mode === 'fall') {
+  if (ch.landed) {
     fallT += dt;
-    if (fallT > 1.4) { fallT = 0; toGround(); camY = ch.hip.y - H * 0.6; }
+    if (fallT > 0.7) { fallT = 0; ch.landed = false; toGround(); }
   }
-  const target = ch.mode === 'fall' ? camY : ch.hip.y - H * 0.6;
+  // камера за тазом, но земля не уходит выше нижних 15% экрана
+  const target = Math.min(ch.hip.y - H * 0.6, -H * 0.85);
   camY += (target - camY) * Math.min(1, dt * 6);
   drawSky();
   drawWall();
@@ -173,14 +177,13 @@ btn('bFall').onclick = () => {
   climbing = false;
   mark('bFall');
   if (ch.mode !== 'hang' && ch.mode !== 'climb') { ch.hangAt(8); camY = ch.hip.y - H * 0.6; }
-  ch.fall();
+  ch.fall(0);
   fallT = 0;
 };
 btn('bDance').onclick = () => {
   climbing = false;
   mark('bDance');
   ch.dance(0, 0);
-  camY = -H * 0.6;
   music.currentTime = 0;
   music.play().catch(() => {});
 };
