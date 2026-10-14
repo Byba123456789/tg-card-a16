@@ -47,8 +47,8 @@ const Game = (() => {
   }
   const meters = y => Math.max(0, Math.round((-y - 36) / STEP));
   const mAt = i => meters(rowY(i));
-  // сложность 0…1 по высоте текущей зацепки
-  const hard = () => clamp(mAt(ch.k) / 800, 0, 1);
+  // сложность растёт ступенькой каждые 50 м
+  const tier = () => Math.floor(mAt(ch.k) / 50);
 
   function side(i) {
     if (i < 0) return i % 2 ? -1 : 1;
@@ -612,7 +612,7 @@ const Game = (() => {
   function updateBirds(dt) {
     const m = mAt(ch.k);
     if (st.mode === 'climb' && m >= BIRDS_FROM && st.birds.length < 1) {
-      const rate = Math.min(0.45, 0.07 + (m - BIRDS_FROM) * 0.0008);
+      const rate = Math.min(0.5, 0.07 + (tier() - 1) * 0.04);
       if (Math.random() < rate * dt) {
         const from = Math.random() < 0.5 ? -1 : 1;
         st.birds.push({ state: 'fly', t: 0, face: -from, sx: from > 0 ? W + 12 : -12, sy: H * 0.2, x: 0, y: 0 });
@@ -658,9 +658,10 @@ const Game = (() => {
     el.classList.add('show');
   }
 
-  // баланс: при быстрых точных тапах набор (хват / длительность перехвата) всегда выше расхода
-  const stepDur = () => 0.42 - 0.18 * hard();
-  const drainRate = () => 6 + 8 * hard();
+  // баланс: расход — доля от набора при идеальном темпе (хват / перехват): 60% на старте, +3% за ступеньку, потолок 90%
+  const stepDur = () => Math.max(0.24, 0.42 - 0.015 * tier());
+  const grabBonus = () => Math.max(4.5, 6 - 0.125 * tier());
+  const drainRate = () => grabBonus() / stepDur() * Math.min(0.9, 0.6 + 0.03 * tier());
 
   function tryClimb(tapSide) {
     const next = hold(ch.k + 1);
@@ -674,7 +675,7 @@ const Game = (() => {
     }
     ch.climbUp(stepDur());
     if (st.tut && ++st.tutSteps >= TUT_STEPS) { st.tut = false; tutDone = true; store.set('tut', 1); }
-    st.stamina = Math.min(100, st.stamina + 6 - 1.5 * hard());
+    st.stamina = Math.min(100, st.stamina + grabBonus());
     haptic('light');
     Sound.play('step');
     const h = hold(ch.k), s0 = st;
