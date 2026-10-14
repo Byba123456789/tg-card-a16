@@ -251,7 +251,7 @@ const Char = (() => {
         const bulge = Math.sin(Math.PI * kh) * 3;
         c.hand[tr.hand] = { x: lerp(tr.h0.x, tr.h1.x, kh) - tr.side * bulge * 0.4, y: lerp(tr.h0.y, tr.h1.y, kh) - bulge * 0.3 };
         const lift = Math.sin(Math.PI * kf) * 6;
-        c.foot[tr.foot] = { x: lerp(tr.f0.x, tr.f1.x, kf) + (tr.foot === 'L' ? -lift : lift) * 0.8, y: lerp(tr.f0.y, tr.f1.y, kf) - lift };
+        c.foot[tr.foot] = { x: lerp(tr.f0.x, tr.f1.x, kf) + (tr.foot === 'L' ? -lift : lift) * 0.5, y: lerp(tr.f0.y, tr.f1.y, kf) - lift };
         c.lean = tr.side * (tr.swing ? 4 : 2) * Math.sin(Math.PI * phase(k, 0.3, 0.95));
         if (k >= 1) { c.mode = 'hang'; c.rest = tr.hip1; c.t = 0; c.tr = null; if (c.onDone) c.onDone(); }
       } else if (c.mode === 'fall') {
@@ -263,8 +263,8 @@ const Char = (() => {
         const a = c.t * 14;
         c.hand.L = { x: s.L[0] - 8 + Math.sin(a) * 5, y: s.L[1] - 12 + Math.cos(a) * 6 };
         c.hand.R = { x: s.R[0] + 8 + Math.sin(a + 2) * 5, y: s.R[1] - 12 + Math.cos(a + 2) * 6 };
-        c.foot.L = { x: c.hip.x - 7 + Math.sin(a * 0.8) * 4, y: c.hip.y + 18 + Math.cos(a * 0.8) * 4 };
-        c.foot.R = { x: c.hip.x + 7 + Math.sin(a * 0.8 + 3) * 4, y: c.hip.y + 18 + Math.cos(a * 0.8 + 3) * 4 };
+        c.foot.L = { x: c.hip.x - 7 + Math.sin(a * 0.8) * 4, y: c.hip.y + 21 + Math.cos(a * 0.8) * 2 };
+        c.foot.R = { x: c.hip.x + 7 + Math.sin(a * 0.8 + 3) * 4, y: c.hip.y + 21 + Math.cos(a * 0.8 + 3) * 2 };
         c.lean = Math.sin(a * 0.5) * 2;
       } else if (c.mode === 'dance') {
         c.danceT += dt;
@@ -314,14 +314,21 @@ const Char = (() => {
       const hipL = [c.hip.x - 2.5, c.hip.y + 1], hipR = [c.hip.x + 2.5, c.hip.y + 1];
       // сильно согнутая нога уходит коленом в стену: укорачиваем её в проекции, чтобы колено не вылетало вбок
       const leg = (hp, f, bend) => {
-        const s = clamp(Math.hypot(f.x - hp[0], f.y - hp[1]) / (0.8 * (THIGH + SHIN)), 0.5, 1);
-        return ik(...hp, f.x, f.y, THIGH * s, SHIN * s, bend);
+        // укорачиваем в основном бедро (оно смотрит в стену), голень почти не меняется — нога не «растёт» при выпрямлении
+        const r = Math.hypot(f.x - hp[0], f.y - hp[1]) / (0.8 * (THIGH + SHIN));
+        return ik(...hp, f.x, f.y, THIGH * clamp(r, 0.5, 1), SHIN * clamp(r, 0.8, 1), bend);
       };
       const legL = leg(hipL, c.foot.L, 1);
       const legR = leg(hipR, c.foot.R, -1);
       // локоть всегда наружу от тела; знак меняем только при заметной разнице, чтобы не дёргался
+      // на стене согнутая рука тоже уходит локтем в стену: укорачиваем в проекции, кисть остаётся на зацепке
       const arm = (sh, h, f, out) => {
-        const a = ik(...sh, h.x, h.y, UPPER, FORE, 1), b = ik(...sh, h.x, h.y, UPPER, FORE, -1);
+        let u = UPPER, w = FORE;
+        if (c.mode === 'hang' || c.mode === 'climb') {
+          const s = clamp(Math.hypot(h.x - sh[0], h.y - sh[1]) / (0.9 * (UPPER + FORE)), 0.35, 1);
+          u *= s; w *= s;
+        }
+        const a = ik(...sh, h.x, h.y, u, w, 1), b = ik(...sh, h.x, h.y, u, w, -1);
         const diff = (a[0] - b[0]) * out;
         if (Math.abs(diff) > 0.5) c.elbow[f] = diff > 0 ? 1 : -1;
         return c.elbow[f] > 0 ? a : b;
