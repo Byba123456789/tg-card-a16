@@ -2,7 +2,7 @@ const Char = (() => {
   const PAL = {
     k: '#1a1620', H: '#7a593b', h: '#9a7550', d: '#523c28',
     S: '#f0c4a2', s: '#d6a083', r: '#e8a08c', E: '#5b7896', w: '#ffffff', m: '#c47d6c',
-    J: '#949eae', j: '#b4bdcb', q: '#6c7689',
+    J: '#949eae', j: '#b4bdcb', q: '#6c7689', A: '#858fa1', a: '#a2acbc', Q: '#5c6679',
     W: '#f6f4ef', x: '#d3d7de', P: '#2e3039', p: '#4a4d5a', B: '#141418', b: '#3a3a44', L: '#101014',
   };
   const HEAD_F = [
@@ -103,7 +103,7 @@ const Char = (() => {
   };
 
   // бедро короче голени: в согнутой ноге колено уходит «к стене», а не горизонтально вбок
-  const UPPER = 10, FORE = 9, THIGH = 9, SHIN = 15, LEG = 24;
+  const UPPER = 11, FORE = 10, THIGH = 9, SHIN = 15.5, LEG = 24.5;
   const OW = 80, OH = 90, OX = 40, OY = 52;
   const clamp = (v, a, z) => Math.max(a, Math.min(z, v));
   const lerp = (a, z, k) => a + (z - a) * k;
@@ -175,7 +175,8 @@ const Char = (() => {
       mode: 'stand', view: 'back', t: 0, k: 1,
       hip: { x: 0, y: 0 }, hand: { L: { x: 0, y: 0 }, R: { x: 0, y: 0 } }, foot: { L: { x: 0, y: 0 }, R: { x: 0, y: 0 } },
       handOn: { L: 0, R: 0 }, footOn: { L: 0, R: 0 },
-      lean: 0, wink: false, hem: 0, hemV: 0, prevVx: 0, prevX: 0, elbow: { L: -1, R: 1 },
+      lean: 0, wink: false, hem: 0, hemV: 0, prevVx: 0, prevX: 0, prevVy: 0, prevY: 0, elbow: { L: -1, R: 1 },
+      head: 0, headV: 0, hair: 0, hairV: 0, hipV: 0, target: null,
       tr: null, rest: null, fallV: 0, ground: 0, landed: false, danceBase: null, danceT: 0, onDone: null,
     };
 
@@ -184,7 +185,7 @@ const Char = (() => {
     function restHip() {
       const hl = grip(c.handOn.L), hr = grip(c.handOn.R), fl = step('L', c.footOn.L), fr = step('R', c.footOn.R);
       const fx = (fl.x + fr.x) / 2;
-      return { x: fx + ((hl.x + hr.x) / 2 - fx) * 0.2, y: Math.max(hl.y, hr.y) + 13 };
+      return { x: fx + ((hl.x + hr.x) / 2 - fx) * 0.35, y: Math.max(hl.y, hr.y) + 13 };
     }
 
     c.hangAt = k => {
@@ -199,15 +200,17 @@ const Char = (() => {
       c.foot.L = step('L', c.footOn.L); c.foot.R = step('R', c.footOn.R);
       c.rest = restHip();
       c.hip = { ...c.rest };
+      c.target = { ...c.rest };
+      c.hipV = 0;
     };
 
-    // шаг вверх: нижняя нога переступает на 2 ряда выше одновременно с толчком таза → нижняя рука перехватывает зацепку k+1
+    // шаг вверх (три точки опоры): нижняя нога переступает выше → присед и толчок ногами, таз вверх → только потом рука к зацепке k+1
     c.climbUp = (dur = 0.7) => {
       const k = c.k + 1;
       const hand = c.handOn.L < c.handOn.R ? 'L' : 'R';
       const foot = c.footOn.L < c.footOn.R ? 'L' : 'R';
       const swing = holdAt(k).side !== holdAt(k - 1).side;
-      const h0 = { ...c.hand[hand] }, f0 = { ...c.foot[foot] }, hip0 = { ...c.hip };
+      const h0 = { ...c.hand[hand] }, f0 = { ...c.foot[foot] }, hip0 = { ...c.target };
       c.handOn[hand] = k;
       c.footOn[foot] = k - 3;
       c.k = k;
@@ -235,25 +238,44 @@ const Char = (() => {
       c.t += dt;
       c.wink = false;
       if (c.mode === 'hang') {
-        c.hip.y = c.rest.y + Math.sin(c.t * 4.2) * 0.8;
-        c.hip.x = c.rest.x + Math.sin(c.t * 1.1) * 0.3;
+        c.target = { x: c.rest.x + Math.sin(c.t * 1.1) * 0.3, y: c.rest.y + Math.sin(c.t * 4.2) * 0.8 };
         c.lean = lerp(c.lean, 0, dt * 6);
       } else if (c.mode === 'climb') {
         const tr = c.tr;
         tr.t += dt;
         const k = tr.t / tr.dur;
-        // нога и таз идут вместе (стопа не отрывается от тела), рука тянется на подъёме
-        const kf = ease(phase(k, 0.05, 0.55));
-        const kp = easeOut(phase(k, 0.1, 0.6));
-        const kh = easeOut(phase(k, 0.45, 0.95));
-        c.hip.y = lerp(tr.hip0.y, tr.hip1.y, kp);
-        c.hip.x = lerp(tr.hip0.x, tr.hip1.x, tr.swing ? backOut(phase(k, 0.4, 0.95)) : ease(phase(k, 0.15, 0.65)));
+        const kf = ease(phase(k, 0.05, 0.45));
+        const kp = easeOut(phase(k, 0.15, 0.6));
+        // рука: плавно 80% пути, последние 20% — быстрый хват
+        const ka = phase(k, 0.5, 0.95);
+        const kh = ka < 0.75 ? 0.8 * easeOut(ka / 0.75) : 0.8 + 0.2 * (ka - 0.75) / 0.25;
+        const dip = Math.sin(Math.PI * phase(k, 0, 0.2)) * 1.5;
+        c.target = {
+          x: lerp(tr.hip0.x, tr.hip1.x, tr.swing ? backOut(phase(k, 0.4, 0.95)) : ease(phase(k, 0.15, 0.6))),
+          y: lerp(tr.hip0.y, tr.hip1.y, kp) + dip,
+        };
         const bulge = Math.sin(Math.PI * kh) * 3;
         c.hand[tr.hand] = { x: lerp(tr.h0.x, tr.h1.x, kh) - tr.side * bulge * 0.4, y: lerp(tr.h0.y, tr.h1.y, kh) - bulge * 0.3 };
         const lift = Math.sin(Math.PI * kf) * 6;
         c.foot[tr.foot] = { x: lerp(tr.f0.x, tr.f1.x, kf) + (tr.foot === 'L' ? -lift : lift) * 0.5, y: lerp(tr.f0.y, tr.f1.y, kf) - lift };
         c.lean = tr.side * (tr.swing ? 4 : 2) * Math.sin(Math.PI * phase(k, 0.3, 0.95));
         if (k >= 1) { c.mode = 'hang'; c.rest = tr.hip1; c.t = 0; c.tr = null; if (c.onDone) c.onDone(); }
+      }
+      // на стене таз догоняет цель пружиной с лёгким перелётом
+      if (c.mode === 'hang' || c.mode === 'climb') {
+        // опорным рукам и ногам не хватает длины — таз подтягивается к ним (запас под перелёт пружины)
+        const pull = (ox, oy, p, max) => {
+          const dx = p.x - (c.target.x + ox), dy = p.y - (c.target.y + oy), d = Math.hypot(dx, dy);
+          if (d > max) { c.target.x += dx * (d - max) / d; c.target.y += dy * (d - max) / d; }
+        };
+        for (const s of ['L', 'R']) {
+          if (!c.tr || c.tr.hand !== s) pull(s === 'L' ? -5 : 4, -14, c.hand[s], UPPER + FORE - 0.8);
+          if (!c.tr || c.tr.foot !== s) pull(s === 'L' ? -3 : 2, 1, c.foot[s], THIGH + SHIN - 0.8);
+        }
+        c.hip.x = c.target.x;
+        c.hipV += (c.target.y - c.hip.y) * 170 * dt;
+        c.hipV *= Math.exp(-16 * dt);
+        c.hip.y += c.hipV * dt;
       } else if (c.mode === 'fall') {
         c.fallV += 380 * dt;
         c.hip.y += c.fallV * dt;
@@ -293,25 +315,32 @@ const Char = (() => {
         c.hand.R = { x: lerp(c.hand.R.x, s.R[0] + 1, k), y: lerp(c.hand.R.y, s.R[1] + 18 + Math.sin(c.t * 2.2) * 0.4, k) };
         c.lean = lerp(c.lean, 0, dt * 6);
       }
-      // низ пиджака отстаёт от рывков таза (пружина)
+      // низ пиджака и причёска отстают от рывков по x, голова — от рывков по y (пружины)
       if (dt > 0) {
-        const vx = (c.hip.x - c.prevX) / dt;
-        const ax = (vx - c.prevVx) / dt;
-        c.prevX = c.hip.x;
-        c.prevVx = vx;
-        c.hemV += (-c.hem * 160 - clamp(ax, -400, 400) * 0.02) * dt;
-        c.hemV *= Math.exp(-dt * 6);
-        c.hem = clamp(c.hem + c.hemV * dt, -2, 2);
+        const vx = (c.hip.x - c.prevX) / dt, ax = (vx - c.prevVx) / dt;
+        const vy = (c.hip.y - c.prevY) / dt, ay = (vy - c.prevVy) / dt;
+        c.prevX = c.hip.x; c.prevVx = vx;
+        c.prevY = c.hip.y; c.prevVy = vy;
+        const spring = (p, v, force, stiff, damp, lim) => {
+          c[v] += (-c[p] * stiff - clamp(force, -400, 400) * 0.3) * dt;
+          c[v] *= Math.exp(-dt * damp);
+          c[p] = clamp(c[p] + c[v] * dt, -lim, lim);
+        };
+        spring('hem', 'hemV', ax, 160, 6, 2);
+        spring('hair', 'hairV', ax, 120, 8, 1);
+        spring('head', 'headV', ay, 120, 9, 1);
       }
     };
 
     function render() {
       const front = c.view === 'front';
+      // всё тело привязано к одной округлённой точке таза — части не дрожат по пикселю независимо
       const bx = Math.round(c.hip.x), by = Math.round(c.hip.y);
+      const tl = Math.round(c.lean * 0.5), hl = Math.round(c.lean);
       const L = (x, y) => [x - bx + OX, y - by + OY];
       oc.clearRect(0, 0, OW, OH);
-      const s = shoulders();
-      const hipL = [c.hip.x - 2.5, c.hip.y + 1], hipR = [c.hip.x + 2.5, c.hip.y + 1];
+      const s = { L: [bx + tl - 5, by - 14], R: [bx + tl + 4, by - 14] };
+      const hipL = [bx - 3, by + 1], hipR = [bx + 2, by + 1];
       // сильно согнутая нога уходит коленом в стену: укорачиваем её в проекции, чтобы колено не вылетало вбок
       const leg = (hp, f, bend) => {
         // укорачиваем в основном бедро (оно смотрит в стену), голень почти не меняется — нога не «растёт» при выпрямлении
@@ -344,8 +373,9 @@ const Char = (() => {
         else oc.drawImage(SPR.heel, Math.round(fx - 2), Math.round(fy - 1));
       };
       const drawArm = (sh, arm, left) => {
-        // тень рукава всегда со стороны тела, чтобы рука читалась на пиджаке
-        limb(oc, [L(...sh), L(arm[0], arm[1]), L(arm[2], arm[3])], 3, PAL.J, left ? PAL.j : PAL.q, left ? PAL.q : PAL.j);
+        // тень рукава всегда со стороны тела; со спины руки дальше от нас — на тон темнее
+        const [fill, lite, dark] = front ? [PAL.J, PAL.j, PAL.q] : [PAL.A, PAL.a, PAL.Q];
+        limb(oc, [L(...sh), L(arm[0], arm[1]), L(arm[2], arm[3])], 3, fill, left ? lite : dark, left ? dark : lite);
         const [cx, cy] = L(lerp(arm[0], arm[2], 0.7), lerp(arm[1], arm[3], 0.7));
         oc.fillStyle = PAL.W;
         oc.fillRect(Math.round(cx - 1), Math.round(cy), 3, 1);
@@ -354,15 +384,18 @@ const Char = (() => {
       };
       const torso = front ? SPR.torsoF : SPR.torsoB;
       const head = front ? (c.wink ? SPR.headFWink : SPR.headF) : SPR.headB;
-      const [tx, ty] = L(c.hip.x + c.lean * 0.5 - 6, c.hip.y - 15);
-      const [hx, hy] = L(c.hip.x + c.lean - 6, c.hip.y - 29);
+      const [tx, ty] = L(bx + tl - 6, by - 15);
+      const [hx, hy] = L(bx + hl - 6, by - 29 + Math.round(c.head));
+      const hair = Math.round(c.hair);
       // со спины руки на скале дальше от нас, чем спина: рисуем их за телом
       if (!front) { drawArm(s.L, armL, true); drawArm(s.R, armR, false); }
       drawLeg(hipL, legL, true);
       drawLeg(hipR, legR, false);
-      oc.drawImage(torso, 0, 0, 12, 13, Math.round(tx), Math.round(ty), 12, 13);
-      oc.drawImage(torso, 0, 13, 12, 5, Math.round(tx + c.hem), Math.round(ty) + 13, 12, 5);
-      oc.drawImage(head, Math.round(hx), Math.round(hy));
+      oc.drawImage(torso, 0, 0, 12, 13, tx, ty, 12, 13);
+      oc.drawImage(torso, 0, 13, 12, 5, tx + Math.round(c.hem), ty + 13, 12, 5);
+      // верх причёски отстаёт от рывков головы
+      oc.drawImage(head, 0, 5, 12, 10, hx, hy + 5, 12, 10);
+      oc.drawImage(head, 0, 0, 12, 5, hx + hair, hy, 12, 5);
       if (front) { drawArm(s.L, armL, true); drawArm(s.R, armR, false); }
       sc.clearRect(0, 0, OW, OH);
       sc.globalCompositeOperation = 'source-over';
