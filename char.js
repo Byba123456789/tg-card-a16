@@ -147,19 +147,8 @@ const Char = (() => {
   }
 
   // позы танца: смещение таза, руки/ноги относительно таза, наклон головы
-  // Hakari Dance (мем «Dante dance»): широкая стойка на согнутых ногах, кулаки у груди, руки по очереди бьют вверх,
-  // таз качается в стороны; стопы (fl, fr) — от стоячего таза, y всегда на полу (LEG)
-  const FISTS = { hl: [-9, -8], hr: [9, -8] };
-  const DANCE = [
-    { hip: [0, 2], ...FISTS, fl: [-9, LEG], fr: [9, LEG] },
-    { hip: [2, 3], hl: [-10, -27], hr: [8, -10], fl: [-10, LEG], fr: [10, LEG], head: 1 },
-    { hip: [0, 2], ...FISTS, fl: [-9, LEG], fr: [9, LEG] },
-    { hip: [-2, 3], hl: [-8, -10], hr: [10, -27], fl: [-10, LEG], fr: [10, LEG], head: -1 },
-    { hip: [0, 5], hl: [-11, -4], hr: [11, -4], fl: [-10, LEG], fr: [10, LEG] },
-    { hip: [2, 3], hl: [-10, -27], hr: [8, -10], fl: [-10, LEG], fr: [10, LEG], head: 1 },
-    { hip: [-2, 3], hl: [-8, -10], hr: [10, -27], fl: [-10, LEG], fr: [10, LEG], head: -1 },
-    { hip: [0, 0], ...FISTS, fl: [-9, LEG], fr: [9, LEG], wink: true },
-  ];
+  const DANCE_BEATS = 8;
+
   const STAND_POSE = { hip: [0, 0], hl: [-6, 4], hr: [5, 4], fl: [-4, LEG], fr: [4, LEG] };
 
   // holdAt(i) — зацепка для рук ({x, y, side}); footAt(j, side) — выступ для ноги на ряду j ({x, y, ground}).
@@ -290,27 +279,28 @@ const Char = (() => {
         c.foot.R = { x: c.hip.x + 7 + Math.sin(a * 0.8 + 3) * 4, y: c.hip.y + 21 + Math.cos(a * 0.8 + 3) * 2 };
         c.lean = Math.sin(a * 0.5) * 2;
       } else if (c.mode === 'dance') {
+        // Hakari Dance: кулаки подняты у плеч, локти согнуты и почти неподвижны; всё делает таз —
+        // качается восьмёркой из стороны в сторону (на каждый удар) и вперёд-назад (спереди это присед), ноги на месте
         c.danceT += dt;
-        const beat = 0.5;
-        const i = Math.min(DANCE.length - 1, Math.floor(c.danceT / beat));
-        const prev = i === 0 ? STAND_POSE : DANCE[i - 1], cur = DANCE[i];
-        // удар рукой резкий (0.1 с), возврат плавнее
-        const k = ease(phase(c.danceT - i * beat, 0, i === 0 ? 0.15 : 0.1));
-        const mixp = (a, z) => [lerp(a[0], z[0], k), lerp(a[1], z[1], k)];
-        const hip = mixp(prev.hip, cur.hip);
-        const bounce = Math.abs(Math.sin(Math.PI * c.danceT / (beat / 2))) * 2;
+        const beat = 0.5, t = c.danceT;
+        const into = Math.min(1, t / 0.2);
         const b = c.danceBase;
-        c.hip = { x: b.x + hip[0], y: b.y + hip[1] - bounce };
-        const hl = mixp(prev.hl, cur.hl), hr = mixp(prev.hr, cur.hr), fl = mixp(prev.fl, cur.fl), fr = mixp(prev.fr, cur.fr);
-        c.hand.L = { x: c.hip.x + hl[0], y: c.hip.y + hl[1] };
-        c.hand.R = { x: c.hip.x + hr[0], y: c.hip.y + hr[1] };
-        c.foot.L = { x: b.x + fl[0], y: b.y + fl[1] };
-        c.foot.R = { x: b.x + fr[0], y: b.y + fr[1] };
-        c.lean = lerp(prev.head || 0, cur.head || 0, k) * 2;
+        const sway = Math.sin(Math.PI * t / beat) * 4;
+        const thrust = Math.cos(2 * Math.PI * t / beat);
+        c.hip = { x: b.x + sway * into, y: b.y + (4 + thrust * 2) * into };
+        const rest = STAND_POSE;
+        const fist = (sx, rx, ry) => ({
+          x: lerp(c.hip.x + rx, c.hip.x + sx * 9 - sway * 0.4, into),
+          y: lerp(c.hip.y + ry, c.hip.y - 22 - thrust * 1, into),
+        });
+        c.hand.L = fist(-1, rest.hl[0], rest.hl[1]);
+        c.hand.R = fist(1, rest.hr[0], rest.hr[1]);
+        c.foot.L = { x: b.x - 10, y: b.y + LEG };
+        c.foot.R = { x: b.x + 10, y: b.y + LEG };
+        c.lean = -sway * 0.3;
         c.view = 'front';
-        c.wink = !!cur.wink;
-        if (c.danceT >= DANCE.length * beat) { const hip = { ...c.hip }; c.stand(b.x, b.y + LEG); c.hip = hip; if (c.onDone) c.onDone(); }
-      } else {
+        c.wink = t > (DANCE_BEATS - 1) * beat + 0.15;
+        if (t >= DANCE_BEATS * beat) { const hip = { ...c.hip }; c.stand(b.x, b.y + LEG); c.hip = hip; if (c.onDone) c.onDone(); }      } else {
         const s = shoulders(), k = Math.min(1, dt * 10);
         c.hip.y = lerp(c.hip.y, c.standY, k);
         c.hip.x = lerp(c.hip.x, c.standX, k);

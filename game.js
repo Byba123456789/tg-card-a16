@@ -25,6 +25,9 @@ const Game = (() => {
   const ROCK = { light: '#b8bfd0', body: '#8790a6', shadow: '#5a6280', deep: '#3a4060', crack: '#2a2e44' };
 
   let cv, g, buf, b, W, H, scale, raf = 0, last = 0, st = null, ch = null, best = 0;
+  // обучение показываем один раз: первые шаги и первая птица
+  const TUT_STEPS = 6;
+  let tutDone = false, tutBirdDone = false;
   let sky = null, skyKey = '';
   const $ = id => document.getElementById(id);
   const rnd = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -80,6 +83,7 @@ const Game = (() => {
     st = {
       mode: 'climb', sides: [1], stamina: 100, camY: 0, queue: null, reached: 0, afterTree: false,
       birds: [], parts: [], shake: 0, bonk: 0, t: 0, fallT: 0, danceT: 0, levelT: 0,
+      tut: !tutDone, tutSteps: 0, tip: '',
     };
     ch = Char.create(hold, foot);
     ch.onDone = onStepDone;
@@ -547,6 +551,7 @@ const Game = (() => {
     spawnParts('feather', bd.x, bd.y, 4);
     haptic('light');
     Sound.play('birdOut');
+    if (!tutBirdDone && st.mode === 'climb') { tutBirdDone = true; store.set('tutBird', 1); }
   }
 
   function flash(text) {
@@ -562,14 +567,16 @@ const Game = (() => {
   function tryClimb(tapSide) {
     const next = hold(ch.k + 1);
     if (next.side !== tapSide) {
-      st.stamina -= 12;
+      if (st.tut) return;
+      st.stamina -= 20;
       st.shake = 0.18;
       haptic('heavy');
       Sound.play('miss');
       return;
     }
     ch.climbUp(stepDur());
-    st.stamina = Math.min(100, st.stamina + Math.max(4, 8 - ch.k * 0.004));
+    if (st.tut && ++st.tutSteps >= TUT_STEPS) { st.tut = false; tutDone = true; store.set('tut', 1); }
+    st.stamina = Math.min(100, st.stamina + Math.max(2.5, 6 - ch.k * 0.005));
     haptic('light');
     Sound.play('step');
     const h = hold(ch.k), s0 = st;
@@ -681,8 +688,11 @@ const Game = (() => {
     if (ch.landed && !wasLanded) { Sound.fallStop(); Sound.play('land'); }
     if (st.mode === 'climb') {
       const sitting = st.birds.some(bd => bd.state === 'sit');
-      const drain = 6 + Math.min(14, ch.k * 0.02);
-      if (ch.k > 1 || ch.mode === 'climb') st.stamina -= drain * dt * (sitting ? 1.7 : 1);
+      // силы тают всё быстрее с высотой: на дереве держишься, если тапаешь быстро, на горе выматывает
+      const drain = 10 + Math.min(20, ch.k * 0.04);
+      // во время обучения силы не тратятся
+      const learning = st.tut || (sitting && !tutBirdDone);
+      if (!learning && (ch.k > 1 || ch.mode === 'climb')) st.stamina -= drain * dt * (sitting ? 1.7 : 1);
       if (st.stamina <= 0) { st.stamina = 0; fall(); }
     } else if (st.mode === 'dance') {
       st.danceT += dt;
@@ -717,12 +727,40 @@ const Game = (() => {
     drawHolds(space);
     ch.draw(b, -W / 2 - camX, st.camY);
     for (const bd of st.birds) drawBird(bd);
+    drawTutorial();
     drawParts();
     drawClouds(true, skyBottom);
     g.drawImage(buf, 0, 0, W * scale, H * scale);
   }
 
+  function ring(x, y, r) {
+    const rr = r + Math.round(Math.sin(st.t * 8) * 1.5);
+    for (let a = 0; a < 360; a += 6) {
+      const c = Math.cos(a * Math.PI / 180), s = Math.sin(a * Math.PI / 180);
+      px(x + c * (rr + 1), y + s * (rr + 1), 2, 2, OUTLINE);
+      px(x + c * rr, y + s * rr, 2, 2, '#ffd84a');
+    }
+  }
+
+  function drawTutorial() {
+    st.tip = '';
+    if (st.mode !== 'climb') return;
+    const bird = st.birds.find(bd => bd.state === 'sit');
+    if (bird && !tutBirdDone) {
+      ring(Math.round(bird.x), Math.round(bird.y), 10);
+      st.tip = 'Тапни по птице!';
+      return;
+    }
+    if (!st.tut) return;
+    const h = hold(ch.k + 1);
+    ring(SX(h.x), SY(h.y), 7);
+    st.tip = `Тапай ${h.side < 0 ? 'СЛЕВА' : 'СПРАВА'}`;
+  }
+
   function updateHud() {
+    const tip = gTip;
+    if (tip.textContent !== st.tip) tip.textContent = st.tip;
+    tip.classList.toggle('hidden', !st.tip);
     $('gM').textContent = st.reached;
     $('gBest').textContent = Math.max(best, st.reached);
     const bar = $('gSt');
@@ -762,6 +800,8 @@ const Game = (() => {
     muteIcon();
     addEventListener('resize', () => { if (raf) resize(); });
     store.get('best').then(v => { best = parseInt(v, 10) || 0; if (st) updateHud(); });
+    store.get('tut').then(v => { tutDone = v === '1'; if (st && st.mode === 'ready') st.tut = !tutDone; });
+    store.get('tutBird').then(v => { tutBirdDone = v === '1'; });
   }
 
   return {

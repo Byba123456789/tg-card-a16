@@ -9,9 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Manrope:wght@500;700;800&family=Unbounded:wght@700;900&display=swap" rel="stylesheet">
 <script src="telegram-web-app.js"></script>
 <script src="photos.js?h=f5bf2acc"></script>
-<script src="audio.js?h=9366045d"></script>
-<script src="char.js?h=40af3e12"></script>
-<script src="game.js?h=2b07f4fc"></script>
+<script src="audio.js?h=7056d2a5"></script>
+<script src="char.js?h=0930f3a0"></script>
+<script src="game.js?h=c5c66fc0"></script>
 <style>
 :root {
   --wall: #262a31;
@@ -201,6 +201,9 @@ main { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding
 .g-over p { margin: 0 0 8px; color: var(--muted); }
 .g-over p b { color: var(--ink); }
 .g-over .btn { margin-top: 14px; }
+.g-over .btn.ghost { padding: 12px; font-size: 14px; }
+.g-tip { position: absolute; left: 16px; right: 16px; bottom: calc(110px + env(safe-area-inset-bottom)); text-align: center; color: #fff; font: 900 20px/1.2 Unbounded, sans-serif; text-shadow: 0 3px 0 #000; pointer-events: none; animation: tip 1s ease-in-out infinite; }
+@keyframes tip { 50% { transform: scale(1.06); } }
 
 .tabs {
   position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 15; transform: translateX(-50%);
@@ -261,6 +264,7 @@ main { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding
     <div class="g-bar"><i id="gSt"></i></div>
   </div>
   <div class="g-msg" id="gMsg"></div>
+  <div class="g-tip hidden" id="gTip"></div>
   <div class="g-over" id="gStart">
     <div class="box">
       <h3>Conquer the Peak</h3>
@@ -268,6 +272,7 @@ main { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding
       <p>Промахнёшься — теряешь силы. Кончились силы — летишь на землю.</p>
       <p>Птицы садятся на голову — тапай по ним.</p>
       <button class="btn" id="gGo">Полезли</button>
+      <button class="btn ghost hidden" id="gCode">Есть код?</button>
     </div>
   </div>
   <div class="g-over hidden" id="gFall">
@@ -288,6 +293,16 @@ main { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding
     <input id="captchaInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="сюда">
     <button class="btn" id="captchaGo">Я не бот</button>
     <p class="err" id="captchaErr"></p>
+  </div>
+</div>
+
+<div class="modal hidden" id="codeModal">
+  <div class="box" id="codeBox">
+    <h3>Секретный код</h3>
+    <p class="note">Знаешь код — откроется вся открытка</p>
+    <input id="codeInput" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="код">
+    <button class="btn" id="codeGo">Открыть</button>
+    <p class="err" id="codeErr"></p>
   </div>
 </div>
 
@@ -554,11 +569,37 @@ document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click
   else show(b.dataset.tab);
 }));
 
+const CODE = 'ДР16';
+const normCode = s => s.toUpperCase().replace(/\s/g, '').replace('DR', 'ДР');
+document.getElementById('gCode').addEventListener('click', () => {
+  document.getElementById('codeErr').textContent = '';
+  document.getElementById('codeInput').value = '';
+  document.getElementById('codeModal').classList.remove('hidden');
+});
+document.getElementById('codeModal').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden'); });
+async function checkCode() {
+  const input = document.getElementById('codeInput');
+  if (normCode(input.value) === CODE) {
+    haptic('success');
+    await store.set('code', 1);
+    location.reload();
+    return;
+  }
+  haptic('error');
+  document.getElementById('codeErr').textContent = 'Не тот код';
+  const box = document.getElementById('codeBox');
+  box.classList.remove('shake');
+  void box.offsetWidth;
+  box.classList.add('shake');
+}
+document.getElementById('codeGo').addEventListener('click', checkCode);
+document.getElementById('codeInput').addEventListener('keydown', e => { if (e.key === 'Enter') checkCode(); });
+
 let titleTaps = 0;
 document.getElementById('title').addEventListener('click', async () => {
   if (!(TESTERS.includes(username) || !inTg) || ++titleTaps < 5) return;
   titleTaps = 0;
-  await store.clear(['visits', 'captcha']);
+  await store.clear(['visits', 'captcha', 'tut', 'tutBird']);
   toast('Сброшено, перезаходи');
 });
 
@@ -573,7 +614,12 @@ async function init() {
   watchReveal();
   watchSwing();
   captchaPassed = (await store.get('captcha')) === '1';
-  if (isTarget) {
+  // остальным — только игра, пока не введут код
+  if (!isTarget && (await store.get('code')) !== '1') {
+    document.getElementById('gBack').classList.add('hidden');
+    document.getElementById('gCode').classList.remove('hidden');
+    show('stage2');
+  } else if (isTarget) {
     const visits = (parseInt(await store.get('visits'), 10) || 0) + 1;
     await store.set('visits', visits);
     if (visits > FIRST_VISITS) {

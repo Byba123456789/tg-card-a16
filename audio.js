@@ -1,6 +1,6 @@
 const Sound = (() => {
   let active = false;
-  let ctx = null, master, sfxBus, bgBus, noise, brown, wind, leaves, hum, birdTimer = 0, music = null, musicGain = null;
+  let ctx = null, master, sfxBus, bgBus, noise, brown, wind, leaves, hum, birdTimer = 0, music = null;
   let muted = false;
   try { muted = localStorage.getItem('bday_muted') === '1'; } catch {}
   const db = v => Math.pow(10, v / 20);
@@ -77,6 +77,7 @@ const Sound = (() => {
       try { build(AC); } catch { ctx = null; return; }
     }
     active = true;
+    warm();
     if (ctx.state !== 'running') ctx.resume().catch(() => {});
   }
 
@@ -91,14 +92,18 @@ const Sound = (() => {
     bgBus = ctx.createGain(); bgBus.connect(master);
     buffers();
     beds();
-    // песню создаём и прогреваем по жесту: iOS иначе не даст её запустить из игрового цикла
+    // песня — обычный аудио-элемент, мимо Web Audio (через MediaElementSource на iOS бывает тишина)
     music = new Audio('audio/dance.mp3');
     music.preload = 'auto';
-    musicGain = ctx.createGain();
-    musicGain.gain.value = db(-6);
-    try { ctx.createMediaElementSource(music).connect(musicGain).connect(master); } catch {}
+  }
+
+  // прогрев песни только в настоящем жесте: iOS иначе не даст запустить её потом из игрового цикла
+  let warmed = false;
+  function warm() {
+    if (warmed || !music || (navigator.userActivation && !navigator.userActivation.isActive)) return;
+    warmed = true;
     music.muted = true;
-    music.play().then(() => { music.pause(); music.currentTime = 0; music.muted = muted; }).catch(() => { music.muted = muted; });
+    music.play().then(() => { music.pause(); music.currentTime = 0; music.muted = muted; }).catch(() => { music.muted = muted; warmed = false; });
   }
 
   const now = () => ctx.currentTime;
@@ -235,21 +240,26 @@ const Sound = (() => {
   // песня танца идёт через общий микшер, фон на время песни приглушается
   function playMusic(from = 0) {
     if (!music) return;
-    clearTimeout(musicStop);
-    if (musicGain) { musicGain.gain.cancelScheduledValues(now()); musicGain.gain.value = db(-6); }
+    clearTimeout(musicFade);
+    music.volume = 1;
     music.currentTime = from;
     music.muted = muted;
     music.play().catch(() => {});
     if (bgBus) ramp(bgBus.gain, db(-12), 0.3);
   }
 
-  // песня затухает за ~0.25 с вместо обрыва (без щелчка)
-  let musicStop = 0;
+  // песня затухает за ~0.25 с вместо обрыва (на iOS громкость не меняется — там просто остановится)
+  let musicFade = 0;
   function stopMusic() {
     if (!music) return;
-    if (musicGain) ramp(musicGain.gain, 0.0001, 0.08);
-    clearTimeout(musicStop);
-    musicStop = setTimeout(() => { music.pause(); music.currentTime = 0; }, 250);
+    clearTimeout(musicFade);
+    let v = 1;
+    const fade = () => {
+      v -= 0.2;
+      if (v > 0) { music.volume = v; musicFade = setTimeout(fade, 50); }
+      else { music.pause(); music.currentTime = 0; music.volume = 1; }
+    };
+    fade();
     if (bgBus) ramp(bgBus.gain, 1, 0.5);
   }
 
