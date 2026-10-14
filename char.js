@@ -1,81 +1,88 @@
 const Char = (() => {
   const PAL = {
-    k: '#1a1620', H: '#b98a52', h: '#dcb070', d: '#8a5e33',
-    S: '#f3c6a0', s: '#d9a07a', r: '#eda48a', E: '#2f5d9b', w: '#ffffff',
-    J: '#8a96a8', j: '#aeb8c8', q: '#636d86',
-    W: '#f5f3ee', x: '#cfd4dc', P: '#363845', p: '#525566', B: '#18181d', b: '#3d3d48',
+    k: '#1a1620', H: '#7a593b', h: '#9a7550', d: '#523c28',
+    S: '#f0c4a2', s: '#d6a083', r: '#e8a08c', E: '#5b7896', w: '#ffffff', m: '#c47d6c',
+    J: '#949eae', j: '#b4bdcb', q: '#6c7689', o: '#4b5366',
+    W: '#f6f4ef', x: '#d3d7de', P: '#2e3039', p: '#4a4d5a', B: '#141418', b: '#3a3a44', L: '#101014',
   };
   const HEAD_F = [
-    '.....kkkkkk.....',
-    '...kkhhhhhhkk...',
-    '..khhhhHHHhhhk..',
-    '.khhHHHHHHHHHhk.',
-    '.kHHHHHHHHHHHHk.',
-    'kHHHHHHHHHHHHHHk',
-    'kHHdHHHdHHHHdHHk',
-    'kHdSdHdSSdHdSdHk',
-    'kdSSSSSSSSSSSSdk',
-    'kSSwESSSSSSwESSk',
-    'kSSEESSSSSSEESSk',
-    'kSrSSSSSSSSSSrSk',
-    '.kSSSSSssSSSSSk.',
-    '..kSSSSSSSSSSk..',
-    '...kkSSSSSSkk...',
-    '.....kkkkkk.....',
+    '...hhhhhh...',
+    '.hhhHHHHhhh.',
+    'hhHHHHHHHHHh',
+    'HHHHHHHHHHHH',
+    'HHHdHHHHdHHH',
+    'HdHHHdHHHHdH',
+    'HHSdHHHdHdSH',
+    'HSSSSdSSSSSH',
+    'HSddSSSSddSH',
+    'HSwESSSSwESH',
+    '.SSSSSsSSSS.',
+    '.SrSSSSSSrS.',
+    '..SSSmmSSS..',
+    '...SSSSSS...',
+    '....SSSS....',
   ];
-  const HEAD_F_WINK = HEAD_F.map((row, i) => i === 9 ? 'kSSwESSSSSSSSSSk' : i === 10 ? 'kSSEESSSSSSkkSSk' : row);
+  const HEAD_F_WINK = HEAD_F.map((row, i) => i === 9 ? 'HSwESSSSddSH' : row);
   const HEAD_B = [
-    '.....kkkkkk.....',
-    '...kkhhhhhhkk...',
-    '..khhhhhhhhhhk..',
-    '.khhHhhHHhhHhhk.',
-    '.kHhHHhHHHhHHHk.',
-    'kHHhHHHdHHHhHHHk',
-    'kHHHdHHHdHHHdHHk',
-    'kHdHHdHHHdHHHdHk',
-    'kHHdHHdHHHdHHdHk',
-    'kSHHdHHdHHHdHHSk',
-    'kSHdHHdHHHdHHdSk',
-    '.kHHdHHdHHdHHHk.',
-    '.kdHHdHHdHHdHdk.',
-    '..kdHdHdHdHdHk..',
-    '...kkSSSSSSkk...',
-    '.....kkkkkk.....',
+    '...hhhhhh...',
+    '.hhhhhhhhhh.',
+    'hhhhHhhHhhhh',
+    'hHHhHHhHHhHh',
+    'HHHHHHHHHHHH',
+    'HHdHHHHHHdHH',
+    'HHdHHdHdHHdH',
+    'HdHHHdHdHHdH',
+    'SdHHHdHdHHHS',
+    'SHHdHHHHdHHS',
+    '.HHdHHHHdHH.',
+    '.dHHHdHdHHd.',
+    '..dHdHHdHd..',
+    '...SSSSSS...',
+    '....SSSS....',
   ];
   const TORSO_F = [
-    '..kkkkkkkkkk..',
-    '.kjjjqWWWqJJk.',
-    'kjjjJqWWWqJJqk',
-    'kjjJJJqWqJJJqk',
-    'kjjJJJqWqJJJqk',
-    'kjjJJJJqJJJJqk',
-    'kjjJJJJbJJJJqk',
-    'kjjJJJJqJJJJqk',
-    'kjjJJJJbJJJJqk',
-    'kjjJJJJqJJJJqk',
-    'kjjJJJJqJJJJqk',
-    'kjJJJJqkqJJJqk',
-    'kqqqqqk.kqqqqk',
-    '.kkkkk...kkkk.',
+    '..jjqWWqJq..',
+    '.jjjqWWqJJq.',
+    'jjjJqWWqJJJq',
+    'jjJJqWWqJJJq',
+    'jjJJJWWJJJJq',
+    'jjJJJWWJJJJq',
+    '.jJJJWWJJJq.',
+    '.jJJJWWJJJq.',
+    '.jJJJWWJJJq.',
+    '.jJJJWxJJJq.',
+    '.jJJJWWJJJq.',
+    '.jJJJxWJJJq.',
+    '.jqqJWWJqqq.',
+    'jjJJJWWJJJJq',
+    'jjJJJWWJJJJq',
+    'jJJJJxxJJJJq',
+    'jJJJq..qJJJq',
+    'qqqq....qqqq',
   ];
   const TORSO_B = [
-    '..kkkkkkkkkk..',
-    '.kjjjqqqqJJJk.',
-    'kjjjJJJJJJJJqk',
-    'kjjJJJJJJJJJqk',
-    'kjjJJJJJJJJJqk',
-    'kjjJJJJqJJJJqk',
-    'kjjJJJJqJJJJqk',
-    'kjjJJJJqJJJJqk',
-    'kjjJJJJqJJJJqk',
-    'kjjJJJJqJJJJqk',
-    'kjjJJJJqJJJJqk',
-    'kjJJJJJqJJJJqk',
-    'kqqqqqqkqqqqqk',
-    '.kkkkkk.kkkkk.',
+    '..jjqqqqJq..',
+    '.jjjJJJJJJq.',
+    'jjjJJJJJJJJq',
+    'jjJJJJJJJJJq',
+    'jjJJJJJJJJJq',
+    'jjJJJJJJJJJq',
+    '.jJJJJJJJJq.',
+    '.jJJJJJJJJq.',
+    '.jJJJJJJJJq.',
+    '.jJJJJqJJJq.',
+    '.jJJJJqJJJq.',
+    '.jJJJJqJJJq.',
+    '.jJJJJqJJJq.',
+    'jjJJJJqJJJJq',
+    'jjJJJJqJJJJq',
+    'jJJJJJqJJJJq',
+    'jJJJJq.qJJJq',
+    'qqqqqq.qqqqq',
   ];
-  const HAND = ['.kk.', 'kSSk', 'kSsk', '.kk.'];
-  const SHOE = ['kkkk...', 'kBBbkk.', 'kBBBBBk', '.kkkkkk'];
+  const HAND = ['SSS', 'SSs', '.s.'];
+  const SHOE = ['BBb...', 'BBBBBb', 'LLLLLL'];
+  const HEEL = ['BBBB', 'BBbB', 'LLLL'];
 
   function sprite(rows, flip) {
     const c = document.createElement('canvas');
@@ -91,15 +98,16 @@ const Char = (() => {
   }
   const SPR = {
     headF: sprite(HEAD_F), headFWink: sprite(HEAD_F_WINK), headB: sprite(HEAD_B),
-    torsoF: sprite(TORSO_F), torsoB: sprite(TORSO_B), hand: sprite(HAND),
-    shoeR: sprite(SHOE), shoeL: sprite(SHOE, true),
+    torsoF: sprite(TORSO_F), torsoB: sprite(TORSO_B), hand: sprite(HAND), handL: sprite(HAND, true),
+    shoeR: sprite(SHOE), shoeL: sprite(SHOE, true), heel: sprite(HEEL),
   };
 
-  const UPPER = 8, FORE = 8, THIGH = 8, SHIN = 8;
+  const UPPER = 10, FORE = 9, THIGH = 12, SHIN = 12;
+  const OW = 80, OH = 90, OX = 40, OY = 52;
   const clamp = (v, a, z) => Math.max(a, Math.min(z, v));
   const lerp = (a, z, k) => a + (z - a) * k;
   const ease = k => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
-  const easeOut = k => 1 - Math.pow(1 - k, 3);
+  const backOut = k => 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2);
   const phase = (t, a, z) => clamp((t - a) / (z - a), 0, 1);
 
   // двухзвенный IK: сустав (локоть/колено) сгибается в сторону bend (+1 по часовой, -1 против)
@@ -113,17 +121,19 @@ const Char = (() => {
     return [rx + Math.cos(th + al) * a, ry + Math.sin(th + al) * a, rx + dx, ry + dy];
   }
 
-  function seg(g, x1, y1, x2, y2, w, col) {
+  function seg(g, x1, y1, x2, y2, w, col, from = 0) {
     g.fillStyle = col;
     const n = Math.max(1, Math.ceil(Math.hypot(x2 - x1, y2 - y1) * 2));
-    for (let i = 0; i <= n; i++) {
+    for (let i = Math.ceil(n * from); i <= n; i++) {
       const x = x1 + (x2 - x1) * i / n, y = y1 + (y2 - y1) * i / n;
       g.fillRect(Math.round(x - w / 2), Math.round(y - w / 2), w, w);
     }
   }
 
-  function limb(g, pts, w, fill, light, dark) {
-    for (let i = 0; i < 2; i++) seg(g, ...pts[i], ...pts[i + 1], w + 2, PAL.k);
+  // конечность: тёмная внутренняя линия (кроме места крепления к телу), заливка, свет и тень
+  function limb(g, pts, w, fill, light, dark, line) {
+    seg(g, ...pts[0], ...pts[1], w + 2, line, 0.4);
+    seg(g, ...pts[1], ...pts[2], w + 2, line);
     for (let i = 0; i < 2; i++) {
       const [x1, y1] = pts[i], [x2, y2] = pts[i + 1];
       seg(g, x1, y1, x2, y2, w, fill);
@@ -168,30 +178,36 @@ const Char = (() => {
 
   // позы танца: смещение таза, руки/ноги относительно таза, наклон головы
   const DANCE = [
-    { hip: [0, 3], hl: [-11, -30], hr: [11, -30], fl: [-9, 14], fr: [9, 14] },
-    { hip: [-2, 1], hl: [-8, -3], hr: [8, -31], fl: [-5, 15], fr: [5, 15], head: -1 },
-    { hip: [2, 1], hl: [-8, -31], hr: [8, -3], fl: [-5, 15], fr: [5, 15], head: 1 },
-    { hip: [0, 1], hl: [-8, -3], hr: [19, -14], fl: [-4, 15], fr: [8, 15], head: 1 },
-    { hip: [-1, 0], hl: [-5, -29], hr: [9, -5], fl: [-4, 16], fr: [4, 16], head: -1 },
-    { hip: [0, 1], hl: [-17, -12], hr: [17, -12], fl: [-5, 15], fr: [5, 15], back: true },
-    { hip: [0, 3], hl: [-18, -11], hr: [18, -11], fl: [-9, 14], fr: [9, 14] },
-    { hip: [0, 3], hl: [-11, -30], hr: [11, -30], fl: [-9, 14], fr: [9, 14], wink: true },
+    { hip: [0, 4], hl: [-12, -33], hr: [12, -33], fl: [-11, 21], fr: [11, 21] },
+    { hip: [-2, 1], hl: [-7, -2], hr: [9, -35], fl: [-6, 24], fr: [5, 24], head: -1 },
+    { hip: [2, 1], hl: [-9, -35], hr: [7, -2], fl: [-5, 24], fr: [6, 24], head: 1 },
+    { hip: [0, 1], hl: [-7, -2], hr: [23, -16], fl: [-5, 24], fr: [9, 23], head: 1 },
+    { hip: [-1, 0], hl: [-5, -30], hr: [9, -4], fl: [-5, 25], fr: [5, 25], head: -1 },
+    { hip: [0, 1], hl: [-21, -14], hr: [21, -14], fl: [-6, 24], fr: [6, 24], back: true },
+    { hip: [0, 4], hl: [-22, -12], hr: [22, -12], fl: [-11, 21], fr: [11, 21] },
+    { hip: [0, 4], hl: [-12, -33], hr: [12, -33], fl: [-11, 21], fr: [11, 21], wink: true },
   ];
 
   function create(x, y) {
+    const off = document.createElement('canvas');
+    off.width = OW; off.height = OH;
+    const oc = off.getContext('2d');
+    const sil = document.createElement('canvas');
+    sil.width = OW; sil.height = OH;
+    const sc = sil.getContext('2d');
+
     const c = {
       mode: 'stand', view: 'back', t: 0,
       hip: { x, y }, hand: { L: { x: x - 6, y: y + 4 }, R: { x: x + 6, y: y + 4 } },
-      foot: { L: { x: x - 4, y: y + 16 }, R: { x: x + 4, y: y + 16 } },
-      lean: 0, headDx: 0, wink: false,
-      tails: [chain(4, 2.2, -0.15, 1, 0.12), chain(4, 2.2, 0.15, 1, 0.12)],
-      hair: [chain(3, 2, -0.9, 0.4, 0.22), chain(3, 2, 0.9, 0.4, 0.22), chain(2, 2, 0.5, -0.85, 0.3)],
+      foot: { L: { x: x - 4, y: y + 24 }, R: { x: x + 4, y: y + 24 } },
+      lean: 0, wink: false,
+      tails: [chain(3, 2.5, -0.15, 1, 0.14), chain(3, 2.5, 0.15, 1, 0.14)],
       tr: null, top: null, low: null, fallV: 0, danceBase: null, danceT: 0, onDone: null,
     };
 
     function restFor(top, low) {
-      const hx = (top.x + low.x) / 2, hy = Math.max(top.y, low.y) + 18;
-      return { hip: { x: hx, y: hy }, fL: { x: hx - 6, y: hy + 13 }, fR: { x: hx + 6, y: hy + 13 } };
+      const hx = (top.x + low.x) / 2, hy = Math.max(top.y, low.y) + 16;
+      return { hip: { x: hx, y: hy }, fL: { x: hx - 5, y: hy + 20 }, fR: { x: hx + 5, y: hy + 20 } };
     }
 
     c.hang = (top, low) => {
@@ -205,11 +221,13 @@ const Char = (() => {
       c.rest = r;
     };
 
-    c.climbTo = (next, dur = 0.7) => {
+    // перехват: тянется нижняя рука; если зацепка с другой стороны — тело перекачивается с инерцией
+    c.climbTo = (next, dur = 0.75) => {
       const moving = c.hand.L.y > c.hand.R.y ? 'L' : 'R';
       const r = restFor(next, c.top);
+      const swing = next.side !== c.top.side;
       c.tr = {
-        dur, t: 0, moving, side: next.side,
+        dur: swing ? dur * 1.1 : dur, t: 0, moving, side: next.side, swing,
         h0: { ...c.hand[moving] }, h1: { x: next.x, y: next.y },
         hip0: { ...c.hip }, hip1: r.hip,
         fL0: { ...c.foot.L }, fL1: r.fL, fR0: { ...c.foot.R }, fR1: r.fR,
@@ -221,15 +239,15 @@ const Char = (() => {
     c.fall = () => { c.mode = 'fall'; c.view = 'front'; c.fallV = -40; c.t = 0; };
     c.stand = (sx, gy, view = 'front') => {
       c.mode = 'stand'; c.view = view;
-      c.hip = { x: sx, y: gy - 16 };
+      c.hip = { x: sx, y: gy - 24 };
       c.foot.L = { x: sx - 4, y: gy };
       c.foot.R = { x: sx + 4, y: gy };
     };
-    c.dance = (sx, gy) => { c.stand(sx, gy); c.mode = 'dance'; c.danceT = 0; c.danceBase = { x: sx, y: gy - 16 }; };
+    c.dance = (sx, gy) => { c.stand(sx, gy); c.mode = 'dance'; c.danceT = 0; c.danceBase = { x: sx, y: gy - 25 }; };
 
     function shoulders() {
       const tx = c.hip.x + c.lean * 0.5;
-      return { L: [tx - 6, c.hip.y - 11], R: [tx + 6, c.hip.y - 11] };
+      return { L: [tx - 5, c.hip.y - 13], R: [tx + 5, c.hip.y - 13] };
     }
 
     c.update = dt => {
@@ -245,16 +263,16 @@ const Char = (() => {
         const k = tr.t / tr.dur;
         const kr = ease(phase(k, 0, 0.4));
         const bulge = Math.sin(Math.PI * kr) * 4;
-        c.hand[tr.moving] = { x: lerp(tr.h0.x, tr.h1.x, kr) - tr.side * bulge * 0.6, y: lerp(tr.h0.y, tr.h1.y, kr) - bulge * 0.3 };
-        const kp = ease(phase(k, 0.3, 0.75));
+        c.hand[tr.moving] = { x: lerp(tr.h0.x, tr.h1.x, kr) - tr.side * bulge * 0.5, y: lerp(tr.h0.y, tr.h1.y, kr) - bulge * 0.4 };
+        const kp = phase(k, 0.3, 0.8);
         const pre = Math.sin(Math.PI * phase(k, 0, 0.4)) * 2;
-        c.hip.x = lerp(tr.hip0.x, tr.hip1.x, kp) + tr.side * pre;
-        c.hip.y = lerp(tr.hip0.y, tr.hip1.y, kp) - pre * 0.5;
-        c.lean = tr.side * 3 * Math.sin(Math.PI * phase(k, 0, 0.75));
+        c.hip.x = lerp(tr.hip0.x, tr.hip1.x, tr.swing ? backOut(kp) : ease(kp)) + tr.side * pre;
+        c.hip.y = lerp(tr.hip0.y, tr.hip1.y, ease(kp)) - pre * 0.5;
+        c.lean = tr.side * (tr.swing ? 5 : 3) * Math.sin(Math.PI * phase(k, 0, 0.8));
         for (const [f, a, z, s0, s1] of [['L', 0.62, 0.84, tr.fL0, tr.fL1], ['R', 0.76, 1, tr.fR0, tr.fR1]]) {
           const kf = ease(phase(k, a, z));
-          const lift = Math.sin(Math.PI * kf) * 3;
-          c.foot[f] = { x: lerp(s0.x, s1.x, kf) + (f === 'L' ? -lift : lift) * 0.5, y: lerp(s0.y, s1.y, kf) - lift };
+          const lift = Math.sin(Math.PI * kf) * 4;
+          c.foot[f] = { x: lerp(s0.x, s1.x, kf) + (f === 'L' ? -lift : lift) * 0.4, y: lerp(s0.y, s1.y, kf) - lift };
         }
         if (k >= 1) { c.mode = 'hang'; c.tr = null; c.t = 0; if (c.onDone) c.onDone(); }
       } else if (c.mode === 'fall') {
@@ -262,10 +280,10 @@ const Char = (() => {
         c.hip.y += c.fallV * dt;
         const s = shoulders();
         const a = c.t * 14;
-        c.hand.L = { x: s.L[0] - 6 + Math.sin(a) * 4, y: s.L[1] - 10 + Math.cos(a) * 5 };
-        c.hand.R = { x: s.R[0] + 6 + Math.sin(a + 2) * 4, y: s.R[1] - 10 + Math.cos(a + 2) * 5 };
-        c.foot.L = { x: c.hip.x - 6 + Math.sin(a * 0.8) * 3, y: c.hip.y + 12 + Math.cos(a * 0.8) * 3 };
-        c.foot.R = { x: c.hip.x + 6 + Math.sin(a * 0.8 + 3) * 3, y: c.hip.y + 12 + Math.cos(a * 0.8 + 3) * 3 };
+        c.hand.L = { x: s.L[0] - 8 + Math.sin(a) * 5, y: s.L[1] - 12 + Math.cos(a) * 6 };
+        c.hand.R = { x: s.R[0] + 8 + Math.sin(a + 2) * 5, y: s.R[1] - 12 + Math.cos(a + 2) * 6 };
+        c.foot.L = { x: c.hip.x - 7 + Math.sin(a * 0.8) * 4, y: c.hip.y + 18 + Math.cos(a * 0.8) * 4 };
+        c.foot.R = { x: c.hip.x + 7 + Math.sin(a * 0.8 + 3) * 4, y: c.hip.y + 18 + Math.cos(a * 0.8 + 3) * 4 };
         c.lean = Math.sin(a * 0.5) * 2;
       } else if (c.mode === 'dance') {
         c.danceT += dt;
@@ -275,7 +293,7 @@ const Char = (() => {
         const k = i === 0 ? 1 : ease(phase(c.danceT - i * beat, 0, 0.2));
         const mixp = (a, z) => [lerp(a[0], z[0], k), lerp(a[1], z[1], k)];
         const hip = mixp(prev.hip, cur.hip);
-        const bounce = Math.abs(Math.sin(Math.PI * c.danceT / (beat / 2))) * 1.2;
+        const bounce = Math.abs(Math.sin(Math.PI * c.danceT / (beat / 2))) * 1.5;
         const b = c.danceBase;
         c.hip = { x: b.x + hip[0], y: b.y + hip[1] - bounce };
         const hl = mixp(prev.hl, cur.hl), hr = mixp(prev.hr, cur.hr), fl = mixp(prev.fl, cur.fl), fr = mixp(prev.fr, cur.fr);
@@ -289,62 +307,70 @@ const Char = (() => {
         if (c.danceT >= DANCE.length * beat) { c.mode = 'stand'; c.view = 'front'; if (c.onDone) c.onDone(); }
       } else {
         const s = shoulders();
-        c.hand.L = { x: s.L[0] - 1, y: s.L[1] + 15 + Math.sin(c.t * 2.2) * 0.4 };
-        c.hand.R = { x: s.R[0] + 1, y: s.R[1] + 15 + Math.sin(c.t * 2.2) * 0.4 };
+        c.hand.L = { x: s.L[0] - 1, y: s.L[1] + 18 + Math.sin(c.t * 2.2) * 0.4 };
+        c.hand.R = { x: s.R[0] + 1, y: s.R[1] + 18 + Math.sin(c.t * 2.2) * 0.4 };
         c.lean = lerp(c.lean, 0, dt * 6);
       }
       const tx = c.hip.x + c.lean * 0.5;
-      const hx = c.hip.x + c.lean;
       for (let s = 0, n = Math.max(1, Math.ceil(dt * 120)); s < n; s++) {
-        stepChain(c.tails[0], tx - 5, c.hip.y + 0.5, dt / n);
-        stepChain(c.tails[1], tx + 5, c.hip.y + 0.5, dt / n);
-        const hy = c.hip.y - 27;
-        [[-6, 5], [6, 5], [2, 0]].forEach(([ox, oy], i) => stepChain(c.hair[i], hx + ox, hy + oy, dt / n));
+        stepChain(c.tails[0], tx - 5, c.hip.y + 2, dt / n);
+        stepChain(c.tails[1], tx + 5, c.hip.y + 2, dt / n);
       }
     };
 
-    c.draw = (g, ox, oy) => {
-      const X = v => v - ox, Y = v => v - oy;
+    function render() {
       const front = c.view === 'front';
+      const bx = Math.round(c.hip.x), by = Math.round(c.hip.y);
+      const L = (x, y) => [x - bx + OX, y - by + OY];
+      oc.clearRect(0, 0, OW, OH);
       const s = shoulders();
-      const hipL = [c.hip.x - 3, c.hip.y - 1], hipR = [c.hip.x + 3, c.hip.y - 1];
+      const hipL = [c.hip.x - 2.5, c.hip.y + 1], hipR = [c.hip.x + 2.5, c.hip.y + 1];
       const legL = ik(...hipL, c.foot.L.x, c.foot.L.y, THIGH, SHIN, 1);
       const legR = ik(...hipR, c.foot.R.x, c.foot.R.y, THIGH, SHIN, -1);
       const armL = ik(...s.L, c.hand.L.x, c.hand.L.y, UPPER, FORE, -1);
       const armR = ik(...s.R, c.hand.R.x, c.hand.R.y, UPPER, FORE, 1);
-      const P = (x, y) => [X(x), Y(y)];
-      const drawTail = ch => {
+      const chainDraw = (ch, w, col, line) => {
         const p = ch.pts;
-        for (let i = 1; i < p.length; i++) seg(g, X(p[i - 1].x), Y(p[i - 1].y), X(p[i].x), Y(p[i].y), 5, PAL.k);
-        for (let i = 1; i < p.length; i++) seg(g, X(p[i - 1].x), Y(p[i - 1].y), X(p[i].x), Y(p[i].y), 3, front ? PAL.J : PAL.q);
+        for (let i = 1; i < p.length; i++) seg(oc, ...L(p[i - 1].x, p[i - 1].y), ...L(p[i].x, p[i].y), w + 2, line);
+        for (let i = 1; i < p.length; i++) seg(oc, ...L(p[i - 1].x, p[i - 1].y), ...L(p[i].x, p[i].y), w, col);
       };
-      const drawLeg = (hip, leg, foot, shoe) => {
-        limb(g, [P(...hip), P(leg[0], leg[1]), P(leg[2], leg[3])], 5, PAL.P, PAL.p, PAL.B);
-        g.drawImage(shoe, Math.round(X(foot.x) - (shoe === SPR.shoeL ? 5 : 1)), Math.round(Y(foot.y) - 1));
+      const drawLeg = (hip, leg, left) => {
+        limb(oc, [L(...hip), L(leg[0], leg[1]), L(leg[2], leg[3])], 4, PAL.P, PAL.p, PAL.L, PAL.L);
+        const [fx, fy] = L(leg[2], leg[3]);
+        if (front) oc.drawImage(left ? SPR.shoeL : SPR.shoeR, Math.round(fx - (left ? 5 : 1)), Math.round(fy - 1));
+        else oc.drawImage(SPR.heel, Math.round(fx - 2), Math.round(fy - 1));
       };
-      const drawArm = (sh, arm) => {
-        limb(g, [P(...sh), P(arm[0], arm[1]), P(arm[2], arm[3])], 4, PAL.J, PAL.j, PAL.q);
-        const cx = lerp(arm[0], arm[2], 0.8), cy = lerp(arm[1], arm[3], 0.8);
-        g.fillStyle = PAL.W;
-        g.fillRect(Math.round(X(cx) - 1), Math.round(Y(cy) - 1), 2, 2);
-        g.drawImage(SPR.hand, Math.round(X(arm[2]) - 2), Math.round(Y(arm[3]) - 2));
+      const drawArm = (sh, arm, left) => {
+        limb(oc, [L(...sh), L(arm[0], arm[1]), L(arm[2], arm[3])], 3, PAL.J, PAL.j, PAL.q, PAL.o);
+        const [cx, cy] = L(lerp(arm[0], arm[2], 0.82), lerp(arm[1], arm[3], 0.82));
+        oc.fillStyle = PAL.W;
+        oc.fillRect(Math.round(cx - 1), Math.round(cy - 1), 2, 2);
+        const [hx, hy] = L(arm[2], arm[3]);
+        oc.drawImage(left ? SPR.handL : SPR.hand, Math.round(hx - 1), Math.round(hy - 1));
       };
-      const drawHair = () => c.hair.forEach(ch => {
-        const p = ch.pts;
-        for (let i = 1; i < p.length; i++) seg(g, X(p[i - 1].x), Y(p[i - 1].y), X(p[i].x), Y(p[i].y), 3, PAL.k);
-        for (let i = 1; i < p.length; i++) seg(g, X(p[i - 1].x), Y(p[i - 1].y), X(p[i].x), Y(p[i].y), 1, i === 1 ? PAL.H : PAL.h);
-      });
-      drawTail(c.tails[0]);
-      drawTail(c.tails[1]);
-      drawLeg(hipL, legL, c.foot.L, SPR.shoeL);
-      drawLeg(hipR, legR, c.foot.R, SPR.shoeR);
-      const tx = Math.round(X(c.hip.x + c.lean * 0.5) - 7), ty = Math.round(Y(c.hip.y) - 13);
-      g.drawImage(front ? SPR.torsoF : SPR.torsoB, tx, ty);
-      drawHair();
-      const head = front ? (c.wink ? SPR.headFWink : SPR.headF) : SPR.headB;
-      g.drawImage(head, Math.round(X(c.hip.x + c.lean) - 8), Math.round(Y(c.hip.y) - 28));
-      drawArm(s.L, armL);
-      drawArm(s.R, armR);
+      c.tails.forEach(ch => chainDraw(ch, 2, front ? PAL.J : PAL.q, PAL.o));
+      drawLeg(hipL, legL, true);
+      drawLeg(hipR, legR, false);
+      const [tx, ty] = L(c.hip.x + c.lean * 0.5 - 6, c.hip.y - 15);
+      oc.drawImage(front ? SPR.torsoF : SPR.torsoB, Math.round(tx), Math.round(ty));
+      const [hx, hy] = L(c.hip.x + c.lean - 6, c.hip.y - 29);
+      oc.drawImage(front ? (c.wink ? SPR.headFWink : SPR.headF) : SPR.headB, Math.round(hx), Math.round(hy));
+      drawArm(s.L, armL, true);
+      drawArm(s.R, armR, false);
+      sc.clearRect(0, 0, OW, OH);
+      sc.globalCompositeOperation = 'source-over';
+      sc.drawImage(off, 0, 0);
+      sc.globalCompositeOperation = 'source-in';
+      sc.fillStyle = PAL.k;
+      sc.fillRect(0, 0, OW, OH);
+      return [bx - OX, by - OY];
+    }
+
+    c.draw = (g, ox, oy) => {
+      const [x0, y0] = render();
+      const dx = Math.round(x0 - ox), dy = Math.round(y0 - oy);
+      for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) g.drawImage(sil, dx + ax, dy + ay);
+      g.drawImage(off, dx, dy);
     };
 
     return c;

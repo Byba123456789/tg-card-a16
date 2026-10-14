@@ -21,17 +21,19 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; 
   <button id="bDance">Танец</button>
   <button id="bSlow">Медленно</button>
 </div>
-<script src="char.js?h=0871fbb0"></script>
+<script src="char.js?h=04cffbcd"></script>
 <script>
 const cv = document.getElementById('cv');
 const g = cv.getContext('2d');
 const buf = document.createElement('canvas');
 const b = buf.getContext('2d');
 let W, H, scale;
-const STEP = 12;
+const STEP = 15;
+const SIDES = [1, -1, 1, 1, 1, -1, -1, 1, -1, -1, -1, 1, 1, -1];
 const rnd = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
-const hold = i => ({ x: (i % 2 ? -9 : 9) + Math.round(rnd(i) * 3 - 1.5), y: -30 - i * STEP, side: i % 2 ? -1 : 1 });
-const ch = Char.create(0, -12);
+const sideOf = i => SIDES[i % SIDES.length];
+const hold = i => ({ x: sideOf(i) * 9 + Math.round(rnd(i) * 3 - 1.5), y: -36 - i * STEP, side: sideOf(i) });
+const ch = Char.create(0, -20);
 let level = 1, climbing = false, slow = false, camY = -80, fallT = 0, t = 0;
 const music = new Audio('audio/dance.mp3');
 
