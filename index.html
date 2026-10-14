@@ -8,7 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Manrope:wght@500;700;800&family=Unbounded:wght@700;900&display=swap" rel="stylesheet">
 <script src="telegram-web-app.js"></script>
-<script src="photos.js?h=8ebff739"></script>
+<script src="photos.js?h=f5bf2acc"></script>
+<script src="game.js?h=d6089815"></script>
 <style>
 :root {
   --wall: #262a31;
@@ -50,7 +51,7 @@ body {
   content: ""; position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px;
   border-radius: 50%; background: #1b1e23; box-shadow: inset 1px 1px 0 rgba(255,255,255,.2);
 }
-main, .screen { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding: 0 16px; }
+main { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding: 0 16px; }
 .hidden { display: none !important; }
 
 .hero { min-height: 92vh; display: flex; flex-direction: column; justify-content: center; text-align: center; padding-top: 40px; }
@@ -126,6 +127,12 @@ main, .screen { position: relative; z-index: 1; max-width: 480px; margin: 0 auto
   display: flex; flex-direction: column; overflow-y: auto;
 }
 .card .back .wish { font: 700 19px/1.25 Caveat, cursive; white-space: pre-line; }
+.card .back .wish.clip { flex: 1; min-height: 0; overflow: hidden; -webkit-mask-image: linear-gradient(#000 65%, transparent); mask-image: linear-gradient(#000 65%, transparent); }
+.card .back .more { align-self: flex-start; margin-top: 4px; padding: 6px 10px; border: 0; border-radius: 999px; background: var(--c); color: #1b1e23; font: 800 12px/1 Manrope, sans-serif; cursor: pointer; }
+.reader { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; background: rgba(10,12,15,.85); }
+.reader .paper { width: 100%; max-width: 440px; max-height: 86vh; overflow-y: auto; padding: 22px 20px; border-radius: 18px; border: 3px solid var(--c); background: var(--paper); color: #26221d; animation: pop .35s cubic-bezier(.3,1.6,.5,1); }
+.reader .wish { font: 700 22px/1.3 Caveat, cursive; white-space: pre-line; }
+.reader .who { margin-top: 18px; text-align: right; font: 700 14px/1.2 Unbounded, sans-serif; }
 .card .back .who { margin-top: auto; padding-top: 16px; text-align: right; font: 700 12px/1.25 Unbounded, sans-serif; color: #26221d; }
 .card .back .stats { list-style: none; margin: 0; padding: 0; font: 700 12px/1.3 Manrope, sans-serif; }
 .card .back .stats li { display: flex; justify-content: space-between; flex-wrap: wrap; margin-bottom: 8px; }
@@ -172,9 +179,26 @@ main, .screen { position: relative; z-index: 1; max-width: 480px; margin: 0 auto
 .lightbox { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 20px; background: rgba(0,0,0,.92); }
 .lightbox img { max-width: 100%; max-height: 86vh; border-radius: 6px; box-shadow: 0 20px 50px rgba(0,0,0,.6); }
 
-.screen { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; text-align: center; padding-bottom: 100px; }
-.screen h2 { margin: 0 0 12px; font: 900 28px/1.15 Unbounded, sans-serif; }
-.screen p { color: var(--muted); margin: 0 0 28px; }
+.game { position: fixed; inset: 0; z-index: 5; background: #000; overflow: hidden; }
+.game canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; touch-action: none; }
+.g-hud { position: absolute; left: 0; right: 0; top: 0; padding: calc(12px + env(safe-area-inset-top)) 16px 0; pointer-events: none; }
+.g-top { display: flex; align-items: center; gap: 12px; }
+.g-back { pointer-events: auto; width: 40px; height: 40px; border: 0; border-radius: 12px; background: rgba(0,0,0,.45); color: #fff; font: 800 20px/1 Manrope, sans-serif; cursor: pointer; }
+.g-h { font: 900 26px/1 Unbounded, sans-serif; color: #fff; text-shadow: 0 2px 0 #000; }
+.g-h small { font-size: 14px; }
+.g-best { margin-left: auto; color: #fff; font: 800 13px/1.2 Manrope, sans-serif; text-shadow: 0 1px 0 #000; }
+.g-bar { height: 10px; margin-top: 10px; border-radius: 6px; background: rgba(0,0,0,.45); border: 2px solid rgba(0,0,0,.6); overflow: hidden; }
+.g-bar i { display: block; height: 100%; width: 100%; background: var(--green); transition: width .1s linear; }
+.g-bar i.low { background: var(--pink); }
+.g-msg { position: absolute; left: 0; right: 0; top: 34%; text-align: center; color: #fff; font: 900 26px/1.1 Unbounded, sans-serif; text-shadow: 0 3px 0 #000; opacity: 0; pointer-events: none; }
+.g-msg.show { animation: gmsg 1.8s ease forwards; }
+@keyframes gmsg { 0% { opacity: 0; transform: scale(.7); } 15%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-20px); } }
+.g-over { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(10,12,15,.55); }
+.g-over .box { width: 100%; max-width: 360px; padding: 24px 20px; border-radius: 22px; background: #1d2026; border: 2px solid #383e48; text-align: center; animation: pop .35s cubic-bezier(.3,1.6,.5,1); }
+.g-over h3 { margin: 0 0 10px; font: 900 24px/1.15 Unbounded, sans-serif; color: var(--yellow); }
+.g-over p { margin: 0 0 8px; color: var(--muted); }
+.g-over p b { color: var(--ink); }
+.g-over .btn { margin-top: 14px; }
 
 .tabs {
   position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 15; transform: translateX(-50%);
@@ -223,9 +247,34 @@ main, .screen { position: relative; z-index: 1; max-width: 480px; margin: 0 auto
   </div>
 </main>
 
-<section class="screen hidden" id="stage2">
-  <h2>Ты не бот.<br>Наверное.</h2>
-  <p>Следующий этап ещё лезет на стену. Скоро будет.</p>
+<section class="game hidden" id="stage2">
+  <canvas id="gCanvas"></canvas>
+  <div class="g-hud">
+    <div class="g-top">
+      <button class="g-back" id="gBack" aria-label="Назад">←</button>
+      <div class="g-h"><span id="gM">0</span><small> м</small></div>
+      <div class="g-best">рекорд <span id="gBest">0</span> м</div>
+    </div>
+    <div class="g-bar"><i id="gSt"></i></div>
+  </div>
+  <div class="g-msg" id="gMsg"></div>
+  <div class="g-over" id="gStart">
+    <div class="box">
+      <h3>ИГРА</h3>
+      <p>Тапай <b>слева</b> или <b>справа</b> — с той стороны, где следующая ветка.</p>
+      <p>Промахнёшься — теряешь силы. Кончились силы — летишь на землю.</p>
+      <p>Птицы садятся на голову — тапай по ним.</p>
+      <button class="btn" id="gGo">Полезли</button>
+    </div>
+  </div>
+  <div class="g-over hidden" id="gFall">
+    <div class="box">
+      <h3 id="gFallT"></h3>
+      <p id="gFallR"></p>
+      <p><b id="gFallB"></b></p>
+      <button class="btn" id="gAgain">Ещё раз с земли</button>
+    </div>
+  </div>
 </section>
 
 <div class="modal hidden" id="captchaModal">
@@ -240,9 +289,10 @@ main, .screen { position: relative; z-index: 1; max-width: 480px; margin: 0 auto
 </div>
 
 <div class="lightbox hidden" id="lightbox"><img alt=""></div>
+<div class="reader hidden" id="reader"><div class="paper"><div class="wish"></div><div class="who"></div></div></div>
 <nav class="tabs hidden" id="tabs">
   <button data-tab="greet">Поздравления</button>
-  <button data-tab="stage2">Дальше</button>
+  <button data-tab="stage2">ИГРА</button>
 </nav>
 
 <script>
@@ -253,14 +303,14 @@ const FIRST_VISITS = 2;
 const TOGETHER = [['all1', 'все вместе'], ['all2', 'и ещё раз']];
 const CREW = [
   { name: 'Артемий', img: 'artemiy', color: '#ffd23f', birthday: true },
-  { name: 'Андрей', img: 'andrey', color: '#3ec1d3',
-    wish: 'Тестовое пожелание от Андрея. Пара строк, чтобы посмотреть, как текст ложится на карточку.', who: 'Андрей' },
-  { name: 'Антон', img: 'anton', color: '#ff4d6d',
-    wish: 'Тестовое пожелание от Антона.\nПодлиннее: проверяем, что длинный текст не вылезает за карточку и нормально читается на маленьком экране телефона, даже если тут целый абзац.', who: 'Антон' },
-  { name: 'Рома', img: 'roma', color: '#7bd389',
-    wish: 'Тестовое пожелание от Ромы. Коротко.', who: 'Рома' },
-  { name: '?', color: '#b388ff', mystery: true,
-    wish: 'Тестовое пожелание от анонима. Кто это — пусть гадает.', who: 'Угадаешь кто я?' },
+  { name: 'Андрей', img: 'andrey', color: '#3ec1d3', who: 'Андрей',
+    wish: 'Артемий, короче с др тебя, желаю тебе всего самого наилучшего, много успехов в жизни, а так же чтобы ты стал ниже чем мы, а то это как то не правильно.\nИ еще, не упади скалолазания' },
+  { name: 'Антон', img: 'anton', color: '#ff4d6d', who: 'Антон',
+    wish: 'Антон ещё пишет…' },
+  { name: 'Рома', img: 'roma', color: '#7bd389', who: 'Рома',
+    wish: 'Артемий, бегемот ты этакий, я хочу поздравить тебя с Днем Рождения, наша дружба уже длится кучу лет и нас с тобой связывает много воспоминаний, будь то ругань, то что то грустное, то что то веселое, но в любом случае это наши с тобой воспоминания, на основе которых я могу спокойно тебя называть своим братом, не по крови, но по духу уж точно.\nПока я это пишу, у меня в голове сложилось целое кино из воспоминаний, как мы проводили время то вдвоем, то всей нашей компашкой, оно было бы явно в жанре комедия.\nНу а что на счет пожеланий? Пожелаю я тебе достичь всех тех целей, которые ты себе поставишь и преодолевать все трудности и препятствия, так же быстро, как ты преодолеваешь трасы на скалолазании, ну и естественно как же я тебя оставлю без пожелания здоровья, ну вот и вся эта лабудень.' },
+  { name: '?', color: '#b388ff', mystery: true, who: 'Угадаешь кто я?',
+    wish: 'Тёма ты самый активный и смешной турбо боров которого я знаю, оставайся таким же. Тебе уже лет больше чем у меня пенис. Дальше больше' },
 ];
 const BIRTHDAY_STATS = [['Сила хвата', 99], ['Выносливость', 87], ['Боязнь высоты', 2], ['Пунктуальность', 34], ['Харизма', 100]];
 const CAPTCHA_ROASTS = [
@@ -329,6 +379,15 @@ function hang(img, caption, k, drop = 70) {
 
 function esc(s) { return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
+function openReader(p) {
+  const box = document.getElementById('reader');
+  box.style.setProperty('--c', p.color);
+  box.querySelector('.wish').textContent = p.wish;
+  box.querySelector('.who').textContent = p.who;
+  box.classList.remove('hidden');
+}
+document.getElementById('reader').addEventListener('click', e => e.currentTarget.classList.add('hidden'));
+
 function buildCard(p) {
   const el = document.createElement('div');
   el.className = 'card reveal';
@@ -338,9 +397,13 @@ function buildCard(p) {
     : `<div class="face front"><img loading="lazy" src="img/${p.img}.webp" alt=""><span class="tap">тапни</span><div class="name">${esc(p.name)}</div></div>`;
   const back = p.birthday
     ? `<div class="face back"><div class="wish" style="margin-bottom:12px">Именинник · lvl 16</div><ul class="stats">${BIRTHDAY_STATS.map(([n, v]) => `<li><span>${n}</span><span>${v}</span><i style="--v:${v}%"></i></li>`).join('')}</ul></div>`
-    : `<div class="face back"><div class="wish">${esc(p.wish)}</div><div class="who">${esc(p.who)}</div></div>`;
+    : `<div class="face back"><div class="wish${p.wish.length > 120 ? ' clip' : ''}">${esc(p.wish)}</div>${p.wish.length > 120 ? '<button class="more">читать целиком</button>' : ''}<div class="who">${esc(p.who)}</div></div>`;
   el.innerHTML = `<div class="inner">${front}${back}</div>`;
-  el.addEventListener('click', () => { el.classList.toggle('flipped'); haptic('light'); });
+  el.addEventListener('click', e => {
+    if (e.target.classList.contains('more')) return openReader(p);
+    el.classList.toggle('flipped');
+    haptic('light');
+  });
   return el;
 }
 
@@ -470,11 +533,14 @@ function goNext() {
   else openCaptcha();
 }
 document.getElementById('nextBtn').addEventListener('click', goNext);
+document.getElementById('gBack').addEventListener('click', () => show('greet'));
 
 function show(id) {
   document.getElementById('greet').classList.toggle('hidden', id !== 'greet');
   document.getElementById('holds').classList.toggle('hidden', id !== 'greet');
   document.getElementById('stage2').classList.toggle('hidden', id !== 'stage2');
+  if (id === 'stage2') Game.open();
+  else Game.close();
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === id));
   scrollTo(0, 0);
 }
