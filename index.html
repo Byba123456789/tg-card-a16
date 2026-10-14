@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Manrope:wght@500;700;800&family=Unbounded:wght@700;900&display=swap" rel="stylesheet">
 <script src="telegram-web-app.js"></script>
+<script src="photos.js"></script>
 <style>
 :root {
   --wall: #262a31;
@@ -65,15 +66,12 @@ main, .screen { position: relative; z-index: 1; max-width: 480px; margin: 0 auto
 .hero .down span { display: block; font-size: 26px; animation: bob 1.6s ease-in-out infinite; }
 @keyframes bob { 50% { transform: translateY(8px); } }
 
-.route { padding-bottom: 40px; }
-.hang { position: relative; width: 74%; margin: 0 0 34px; transform-origin: 50% 0; padding-top: 70px; }
-.hang:nth-child(odd) { margin-left: 2%; }
-.hang:nth-child(even) { margin-left: 24%; }
+.hang { position: relative; transform-origin: 50% 0; padding-top: 70px; cursor: zoom-in; }
 .hang .sway { display: flow-root; transform-origin: 50% 0; transform: rotate(calc(var(--r) + var(--swing) * var(--k))); transition: transform .5s cubic-bezier(.3,1.6,.5,1); }
 .hang .rope { position: absolute; left: 50%; top: -70px; width: 3px; height: 100px; margin-left: -1.5px; background: repeating-linear-gradient(var(--rope) 0 6px, #b8932a 6px 9px); border-radius: 2px; }
 .hang .biner { position: absolute; left: 50%; top: 28px; width: 22px; margin-left: -11px; z-index: 2; }
 .frame {
-  position: relative; margin-top: 66px; padding: 9px 9px 30px; background: var(--paper); border-radius: 3px;
+  position: relative; margin: 66px 0 0; padding: 9px 9px 30px; background: var(--paper); border-radius: 3px;
   box-shadow: 0 18px 30px rgba(0,0,0,.45), 0 2px 0 rgba(0,0,0,.2);
 }
 .frame img { display: block; width: 100%; height: auto; border-radius: 1px; background: #ddd; }
@@ -95,7 +93,12 @@ main, .screen { position: relative; z-index: 1; max-width: 480px; margin: 0 auto
 .bday .sixteen { display: block; margin-top: 10px; font: 900 96px/1 Unbounded, sans-serif; color: transparent; -webkit-text-stroke: 2px var(--yellow); }
 
 .together { padding: 10px 0 30px; }
-.together .hang { width: 92%; margin-left: 4% !important; }
+.together .hang { width: 92%; margin: 0 auto 34px; }
+.route { columns: 2; column-gap: 12px; padding: 10px 0 40px; }
+.route .hang { break-inside: avoid; padding-top: var(--drop); }
+.route .hang .rope { top: calc(-1 * var(--drop)); height: calc(var(--drop) + 8px); }
+.route .hang .biner { top: 4px; width: 16px; margin-left: -8px; }
+.route .frame { margin-top: 28px; padding: 6px 6px 16px; }
 
 .sec-title { margin: 60px 0 6px; text-align: center; font: 900 30px/1.1 Unbounded, sans-serif; }
 .sec-sub { margin: 0 0 26px; text-align: center; color: var(--muted); font-size: 14px; }
@@ -205,7 +208,7 @@ main, .screen { position: relative; z-index: 1; max-width: 480px; margin: 0 auto
     <p>Артемий, тебе<span class="sixteen">16</span></p>
   </section>
 
-  <section class="together route" id="together"></section>
+  <section class="together" id="together"></section>
 
   <h2 class="sec-title reveal">Компашка</h2>
   <p class="sec-sub reveal">тапни по карточке</p>
@@ -247,10 +250,6 @@ const TARGETS = ['zitruss116', 'omanns'];
 const TESTERS = ['omanns'];
 const FIRST_VISITS = 2;
 
-const MEMORIES = [
-  ['mem-01', ''], ['mem-02', ''], ['mem-03', ''], ['mem-04', ''], ['mem-05', ''], ['mem-06', ''],
-  ['mem-07', ''], ['mem-10', ''], ['mem-11', ''], ['mem-12', ''], ['mem-13', ''], ['mem-14', ''],
-];
 const TOGETHER = [['all1', 'все вместе'], ['all2', 'и ещё раз']];
 const CREW = [
   { name: 'Артемий', img: 'artemiy', color: '#ffd23f', birthday: true },
@@ -264,7 +263,6 @@ const CREW = [
     wish: 'Тестовое пожелание от анонима. Кто это — пусть гадает.', who: 'Угадаешь кто я?' },
 ];
 const BIRTHDAY_STATS = [['Сила хвата', 99], ['Выносливость', 87], ['Боязнь высоты', 2], ['Пунктуальность', 34], ['Харизма', 100]];
-const NET = ['net-01', 'net-02', 'net-03', 'net-04', 'net-05', 'net-06', 'net-07'];
 const CAPTCHA_ROASTS = [
   'Бот детектед. Ещё раз.',
   'Тебе 16, а капчу не можешь, пиздец',
@@ -318,11 +316,13 @@ function rand() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 214748
 
 const BINER = '<svg class="biner" viewBox="0 0 22 40"><path d="M11 3c5 0 8 3 8 8v18c0 5-3 8-8 8s-8-3-8-8V11c0-5 3-8 8-8z" fill="none" stroke="#c9ced6" stroke-width="3.5"/><path d="M6 12v16" stroke="#8a9099" stroke-width="3" stroke-linecap="round"/></svg>';
 
-function hang(img, caption, k) {
+function hang(img, caption, k, drop = 70) {
   const el = document.createElement('div');
   el.className = 'hang reveal';
   el.style.setProperty('--r', (rand() * 8 - 4).toFixed(1) + 'deg');
   el.style.setProperty('--k', k.toFixed(2));
+  el.style.setProperty('--drop', drop.toFixed(0) + 'px');
+  el.addEventListener('click', () => openLightbox(`img/${img}.webp`));
   el.innerHTML = `<div class="sway"><div class="rope"></div>${BINER}<figure class="frame"><img loading="lazy" src="img/${img}.webp" alt="">${caption ? `<figcaption>${caption}</figcaption>` : ''}</figure></div>`;
   return el;
 }
@@ -346,13 +346,13 @@ function buildCard(p) {
 
 function buildPage() {
   const route = document.getElementById('route');
-  MEMORIES.forEach(([img, cap]) => route.append(hang(img, cap, 0.6 + rand() * 0.8)));
+  PHOTOS.mem.forEach(img => route.append(hang(img, '', 0.6 + rand() * 0.8, 14 + rand() * 30)));
   const together = document.getElementById('together');
   TOGETHER.forEach(([img, cap]) => together.append(hang(img, cap, 0.5)));
   const crew = document.getElementById('crew');
   CREW.forEach(p => crew.append(buildCard(p)));
   const net = document.getElementById('net');
-  NET.forEach((img, i) => {
+  PHOTOS.net.forEach((img, i) => {
     const el = document.createElement('div');
     el.className = 'ev reveal';
     el.style.setProperty('--r', (rand() * 12 - 6).toFixed(1) + 'deg');

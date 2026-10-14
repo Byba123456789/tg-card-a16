@@ -1,0 +1,1 @@
+const PHOTOS = {"mem": ["mem-01", "mem-02", "mem-03", "mem-04", "mem-05", "mem-06", "mem-07", "mem-08", "mem-09", "mem-10", "mem-11", "mem-12", "mem-13", "mem-14", "mem-15", "mem-16", "mem-17", "mem-18", "mem-19", "mem-20", "mem-23", "mem-24", "mem-25", "mem-26", "mem-27"], "net": ["net-01", "net-02", "net-03", "net-04", "net-05", "net-06", "net-07", "net-08", "net-09"]};
