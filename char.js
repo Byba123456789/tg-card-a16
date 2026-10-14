@@ -158,8 +158,9 @@ const Char = (() => {
     { hip: [0, 4], hl: [-12, -33], hr: [12, -33], fl: [-11, 21], fr: [11, 21], wink: true },
   ];
 
-  // holdAt(i) — зацепка i ({x, y, side}); для i < 0 — точка на земле. Руки на зацепках k и k-1, ноги на k-3 (согнутая) и k-4 (прямая)
-  function create(holdAt) {
+  // holdAt(i) — зацепка для рук ({x, y, side}); footAt(j, side) — выступ для ноги на ряду j ({x, y, ground}).
+  // Руки на зацепках k и k-1, ноги на рядах k-3 (согнутая) и k-4 (прямая), каждая нога на своей стороне
+  function create(holdAt, footAt) {
     const off = document.createElement('canvas');
     off.width = OW; off.height = OH;
     const oc = off.getContext('2d');
@@ -176,9 +177,9 @@ const Char = (() => {
     };
 
     const grip = i => { const h = holdAt(i); return { x: h.x, y: h.y - 1 }; };
-    const step = i => { const h = holdAt(i); return { x: h.x, y: h.ground ? h.y : h.y - 3 }; };
+    const step = (f, j) => { const h = footAt(j, f === 'L' ? -1 : 1); return { x: h.x, y: h.ground ? h.y : h.y - 3 }; };
     function restHip() {
-      const hl = grip(c.handOn.L), hr = grip(c.handOn.R), fl = step(c.footOn.L), fr = step(c.footOn.R);
+      const hl = grip(c.handOn.L), hr = grip(c.handOn.R), fl = step('L', c.footOn.L), fr = step('R', c.footOn.R);
       return { x: (hl.x + hr.x) * 0.3 + (fl.x + fr.x) * 0.2, y: Math.max(hl.y, hr.y) + 12 };
     }
 
@@ -191,7 +192,7 @@ const Char = (() => {
       c.footOn.L = k - 4 + (k % 2 ? 1 : 0);
       c.footOn.R = k - 3 - (k % 2 ? 1 : 0);
       c.hand.L = grip(c.handOn.L); c.hand.R = grip(c.handOn.R);
-      c.foot.L = step(c.footOn.L); c.foot.R = step(c.footOn.R);
+      c.foot.L = step('L', c.footOn.L); c.foot.R = step('R', c.footOn.R);
       c.rest = restHip();
       c.hip = { ...c.rest };
     };
@@ -207,7 +208,7 @@ const Char = (() => {
       c.footOn[foot] = k - 2;
       c.k = k;
       const hip1 = restHip();
-      c.tr = { dur, t: 0, hand, foot, swing, side: holdAt(k).side, h0, h1: grip(k), f0, f1: step(k - 2), hip0, hip1 };
+      c.tr = { dur, t: 0, hand, foot, swing, side: holdAt(k).side, h0, h1: grip(k), f0, f1: step(foot, k - 2), hip0, hip1 };
       c.mode = 'climb';
     };
 
