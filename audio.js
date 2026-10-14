@@ -93,9 +93,14 @@ const Sound = (() => {
     buffers();
     beds();
     // песня — обычный аудио-элемент, мимо Web Audio (через MediaElementSource на iOS бывает тишина)
-    music = new Audio('audio/dance.mp3');
+    music = new Audio();
     music.preload = 'auto';
+    songSrc.then(src => { music.src = src; music.load(); });
   }
+
+  // WebView Телеграма игнорирует preload: качаем песню целиком в память заранее, при загрузке страницы
+  const songSrc = fetch('audio/dance.mp3').then(r => r.ok ? r.blob() : Promise.reject())
+    .then(bl => URL.createObjectURL(bl), () => 'audio/dance.mp3');
 
   // прогрев песни только в настоящем жесте: iOS иначе не даст запустить её потом из игрового цикла
   let warmed = false;
@@ -238,13 +243,23 @@ const Sound = (() => {
   }
 
   // песня танца идёт через общий микшер, фон на время песни приглушается
-  function playMusic(from = 0) {
+  // если песня ещё не готова — догоняем танец: стартуем с того места, где он сейчас
+  let musicT0 = 0;
+  function musicGo() {
+    const at = (performance.now() - musicT0) / 1000;
+    if (at > 3.5) return;
+    if (music.readyState) music.currentTime = at;
+    music.play().catch(() => {});
+  }
+
+  function playMusic() {
     if (!music) return;
     clearTimeout(musicFade);
     music.volume = 1;
-    music.currentTime = from;
     music.muted = muted;
-    music.play().catch(() => {});
+    musicT0 = performance.now();
+    musicGo();
+    if (music.readyState < 3) music.addEventListener('canplay', musicGo, { once: true });
     if (bgBus) ramp(bgBus.gain, db(-12), 0.3);
   }
 
@@ -253,6 +268,7 @@ const Sound = (() => {
   function stopMusic() {
     if (!music) return;
     clearTimeout(musicFade);
+    music.removeEventListener('canplay', musicGo);
     let v = 1;
     const fade = () => {
       v -= 0.2;
@@ -266,7 +282,7 @@ const Sound = (() => {
   // уход из игры: всё засыпает; возврат — просыпается
   function pause() {
     active = false;
-    if (music) { music.pause(); music.currentTime = 0; }
+    if (music) { music.removeEventListener('canplay', musicGo); music.pause(); music.currentTime = 0; }
     if (ctx) ctx.suspend().catch(() => {});
   }
 

@@ -33,10 +33,22 @@ const Game = (() => {
   const rnd = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
   const clamp = (v, a, z) => Math.max(a, Math.min(z, v));
 
-  // ряды зацепок: на дереве от земли, выше платформы — заново от её уровня (как от земли)
-  const PLAT_Y = -36 - TREE_TOP * STEP;
-  const rowY = i => i <= TREE_TOP ? -36 - i * STEP : PLAT_Y - 36 - (i - TREE_TOP - 1) * STEP;
+  // уступы: 0 — платформа дерева, k ≥ 1 — привал на k·100 м; ряды выше уступа идут от его уровня, как от земли
+  const LEDGE_M = 100, LEDGE_ROWS = 98, REST_T = 1.5;
+  const platRow = k => k ? k * LEDGE_ROWS : TREE_TOP;
+  const platM = k => k ? k * LEDGE_M : TREE_TOP;
+  const platY = k => -36 - platM(k) * STEP;
+  const platAt = i => i === TREE_TOP ? 0 : i > 0 && i % LEDGE_ROWS === 0 ? i / LEDGE_ROWS : -1;
+  const PLAT_Y = platY(0), SPACE_Y = platY(SPACE_FROM / LEDGE_M);
+  function rowY(i) {
+    if (i <= TREE_TOP) return -36 - i * STEP;
+    const k = Math.floor((i - 1) / LEDGE_ROWS);
+    return platY(k) - 36 - (i - platRow(k) - 1) * STEP;
+  }
   const meters = y => Math.max(0, Math.round((-y - 36) / STEP));
+  const mAt = i => meters(rowY(i));
+  // сложность 0…1 по высоте текущей зацепки
+  const hard = () => clamp(mAt(ch.k) / 800, 0, 1);
 
   function side(i) {
     if (i < 0) return i % 2 ? -1 : 1;
@@ -54,10 +66,10 @@ const Game = (() => {
     return y >= 0 ? { x: s * 4, y: 0, side: s, ground: true } : { x, y, side: s };
   }
 
-  // выступы ног тянутся за стороной зацепок выше; после танца нижние ряды — это сама платформа
+  // выступы ног тянутся за стороной зацепок выше; над уступом нижние ряды — это сам уступ
   function foot(j, s) {
     const y = rowY(j);
-    const floor = st.afterTree ? PLAT_Y : 0;
+    const floor = st.base >= 0 ? platY(st.base) : 0;
     if (y >= floor) return { x: s * 4, y: floor, ground: true };
     return { x: side(j + 2) * 6 + (s < 0 ? -2 : 2) + Math.round(rnd(j * 3 + s) * 2 - 1), y: y + Math.round(rnd(j * 5)) };
   }
@@ -81,8 +93,8 @@ const Game = (() => {
 
   function reset() {
     st = {
-      mode: 'climb', sides: [1], stamina: 100, camY: 0, queue: null, reached: 0, afterTree: false,
-      birds: [], parts: [], shake: 0, bonk: 0, t: 0, fallT: 0, danceT: 0, levelT: 0,
+      mode: 'climb', sides: [1], stamina: 100, camY: 0, queue: null, reached: 0, base: -1,
+      birds: [], parts: [], shake: 0, bonk: 0, t: 0, fallT: 0, danceT: 0, restT: 0, levelT: 0,
       tut: !tutDone, tutSteps: 0, tip: '',
     };
     ch = Char.create(hold, foot);
@@ -214,6 +226,73 @@ const Game = (() => {
     b.globalAlpha = 1;
   }
 
+  // обломки скалы плывут на фоне космоса
+  function drawDebris(m) {
+    const a = clamp((m - 560) / 60, 0, 1);
+    if (a <= 0) return;
+    b.globalAlpha = a;
+    const span = W + 40;
+    for (let i = 0; i < 14; i++) {
+      const k = 0.15 + rnd(i + 300) * 0.3, dir = i % 2 ? 1 : -1;
+      const x = ((rnd(i + 310) * span + st.t * (2 + rnd(i + 320) * 5) * dir) % span + span) % span - 20;
+      const y = ((rnd(i + 330) * H * 3 - st.camY * k) % (H * 1.5) + H * 1.5) % (H * 1.5) - H * 0.25;
+      const r = 1 + Math.round(rnd(i + 340) * 3);
+      disc(x, y, r, '#2a2440');
+      if (r > 1) disc(x - 1, y - 1, r - 1, '#4e4670');
+      if (r > 2) px(x - r + 1, y - 1, 1, 1, '#7a7096');
+    }
+    b.globalAlpha = 1;
+  }
+
+  function asteroid(cx, cy, r, seed) {
+    disc(cx, cy, r + 1, OUTLINE);
+    disc(cx, cy, r, '#4a4266');
+    disc(cx - 1, cy - 1, r - 1, '#7a7096');
+    disc(cx - 2, cy - 2, Math.max(1, r - 3), '#a59cc0');
+    const a = rnd(seed) * Math.PI * 2;
+    const kx = cx + Math.round(Math.cos(a) * r * 0.45), ky = cy + Math.round(Math.sin(a) * r * 0.45);
+    px(kx, ky, 2, 2, '#2e2844');
+    px(kx + 1, ky + 2, 2, 1, '#a59cc0');
+  }
+
+  // привал: на горе — каменный уступ во всю ширину, в космосе — большой плоский астероид
+  function drawLedges(top, bottom, m) {
+    const space = clamp((m - 450) / 200, 0, 1);
+    const tint = c => space ? mix(c, '#3f3658', space * 0.75) : c;
+    const k0 = Math.max(1, Math.floor(meters(bottom + 40) / LEDGE_M)), k1 = Math.ceil(meters(top) / LEDGE_M);
+    for (let k = k0; k <= k1; k++) {
+      const py = platY(k), sy = SY(py);
+      if (sy < -30 || sy > H + 10) continue;
+      if (platM(k) >= SPACE_FROM) {
+        for (let dy = 0; dy < 22; dy++) {
+          const half = Math.round(58 * Math.sqrt(1 - Math.pow(dy / 22, 2)) + Math.sin(dy * 1.3 + k) * 2);
+          px(SX(-half) - 1, sy + dy, half * 2 + 2, 1, OUTLINE);
+          px(SX(-half), sy + dy, half * 2, 1, dy < 2 ? '#a59cc0' : dy > 14 ? '#4a4266' : '#7a7096');
+          px(SX(half) - 4, sy + dy, 4, 1, '#4a4266');
+        }
+        px(SX(-59), sy - 1, 118, 1, OUTLINE);
+        for (let c = 0; c < 4; c++) {
+          const cx = SX(-40 + c * 24 + Math.round(rnd(k * 9 + c) * 8)), cy = sy + 5 + Math.round(rnd(k * 7 + c) * 8);
+          px(cx, cy, 3, 2, '#2e2844');
+          px(cx + 1, cy + 2, 3, 1, '#a59cc0');
+        }
+        continue;
+      }
+      const snow = platM(k) >= 300;
+      px(0, sy - 1, W, 1, OUTLINE);
+      for (let x = 0; x < W; x++) {
+        const wx = x - SX(0), seam = ((wx % 17) + 17) % 17 === 0;
+        px(x, sy, 1, 2, snow && rnd(wx * 0.37 + k) > 0.3 ? '#f4f8ff' : tint(ROCK.light));
+        px(x, sy + 2, 1, 9, tint(seam ? ROCK.shadow : ROCK.body));
+        px(x, sy + 11, 1, 3, tint(ROCK.shadow));
+        // низ уступа неровный: сглаженные зубцы разной длины
+        const drip = Math.max(0, Math.round(Math.sin(wx * 0.31 + k) * 3 + Math.sin(wx * 0.11 + k * 3) * 3 + rnd(Math.floor(wx / 3) + k) * 2));
+        px(x, sy + 14, 1, drip, tint(ROCK.deep));
+        px(x, sy + 14 + drip, 1, 1, OUTLINE);
+      }
+    }
+  }
+
   function cloud(cx, cy, s, seed, tint) {
     const n = 3 + Math.floor(rnd(seed) * 3);
     const blobs = [];
@@ -328,11 +407,13 @@ const Game = (() => {
     const space = clamp((m - 450) / 200, 0, 1);
     const snowK = clamp((m - 300) / 150, 0, 1);
     const tint = c => space ? mix(c, '#3f3658', space * 0.75) : c;
-    for (let y = Math.floor(top / 2) * 2; y < Math.min(PLAT_Y + 6, bottom); y += 2) {
+    for (let y = Math.max(SPACE_Y, Math.floor(top / 2) * 2); y < Math.min(PLAT_Y + 6, bottom); y += 2) {
       const r = Math.floor(y / 2);
-      const hw = 40 + Math.round(Math.sin(r * 0.13) * 5 + Math.sin(r * 0.41) * 2 + rnd(r) * 2);
+      // к космосу скала крошится: блоки пропадают, остаются отдельные куски
+      const crumble = clamp(((-y - 36) / STEP - (SPACE_FROM - 60)) / 60, 0, 1);
+      const hw = Math.round((40 + Math.sin(r * 0.13) * 5 + Math.sin(r * 0.41) * 2 + rnd(r) * 2) * (1 - crumble * 0.3));
       const sy = SY(y);
-      px(SX(-hw) - 1, sy, hw * 2 + 2, 2, OUTLINE);
+      if (!crumble) px(SX(-hw) - 1, sy, hw * 2 + 2, 2, OUTLINE);
       for (let c = 0; c < CUTS.length - 1; c++) {
         const rowH = 26 + Math.floor(rnd(c * 3 + 1) * 16), ph = Math.floor(rnd(c + 7) * rowH);
         const row = Math.floor((y + ph) / rowH), inRow = (((y + ph) % rowH) + rowH) % rowH;
@@ -340,6 +421,10 @@ const Game = (() => {
         const x0 = Math.max(CUTS[c] + (c ? jit : 0), -hw), x1 = Math.min(CUTS[c + 1] + (c < CUTS.length - 2 ? Math.round(rnd(row * 5 + c + 1) * 6 - 3) : 0), hw);
         if (x1 <= x0) continue;
         const id = row * 31 + c * 7;
+        if (crumble) {
+          if (rnd(id + 13) < crumble * 0.7) continue;
+          px(SX(x0) - 1, sy, x1 - x0 + 2, 2, OUTLINE);
+        }
         const warm = rnd(id) > 0.7;
         let col = warm ? '#9a8a7a' : ROCK.body;
         if (inRow < 2) col = snowK > 0 && rnd(id + 3) < snowK * 0.45 ? '#f4f8ff' : (warm ? '#b8a690' : ROCK.light);
@@ -359,12 +444,16 @@ const Game = (() => {
     }
   }
   // номер ряда по высоте (обратная к rowY) — перебираем только видимые зацепки
-  const rowAt = y => y > PLAT_Y ? (-36 - y) / STEP : TREE_TOP + 1 + (PLAT_Y - 36 - y) / STEP;
+  function rowAt(y) {
+    if (y > PLAT_Y) return (-36 - y) / STEP;
+    const m = (-36 - y) / STEP, k = m < LEDGE_M ? 0 : Math.floor(m / LEDGE_M);
+    return platRow(k) + 1 + (platY(k) - 36 - y) / STEP;
+  }
   // скала статична: рисуем её полосами по 128 px в отдельные холсты и кэшируем (тон квантуем по 25 м)
   const STRIP = 128, strips = new Map();
   function drawRockCached(top, bottom, m) {
     const mq = Math.round(m / 25) * 25;
-    for (let si = Math.floor(top / STRIP); si * STRIP < Math.min(bottom, PLAT_Y + 6); si++) {
+    for (let si = Math.floor(Math.max(top, SPACE_Y - STRIP) / STRIP); si * STRIP < Math.min(bottom, PLAT_Y + 6); si++) {
       const key = `${si}:${mq}:${W}`;
       let c = strips.get(key);
       if (!c) {
@@ -385,12 +474,13 @@ const Game = (() => {
   function drawHolds(space) {
     const from = Math.max(-3, Math.floor(rowAt(st.camY + H + 20)) - 2), to = Math.ceil(rowAt(st.camY - 20)) + 2;
     for (let i = from; i <= to; i++) {
-      if (i === TREE_TOP) continue;
+      if (platAt(i) >= 0) continue;
       const h = hold(i);
       if (h.ground) continue;
       const sx = SX(h.x), sy = SY(h.y);
       if (sy < -10 || sy > H + 10) continue;
-      if (i < TREE_TOP) {
+      if (mAt(i) > SPACE_FROM - 30) asteroid(sx, sy, 4 + Math.round(rnd(i + 200) * 2), i);
+      else if (i < TREE_TOP) {
         px(sx - 4, sy - 2, 9, 6, BARK.dark);
         px(sx - 3, sy - 1, 7, 4, BARK.body);
         px(sx - 3, sy - 1, 6, 1, BARK.light);
@@ -411,6 +501,12 @@ const Game = (() => {
         // выступ рядом с зацепкой не рисуем: нога встаёт на саму зацепку
         const hj = hold(j);
         if (Math.abs(hj.x - f.x) < 7 && Math.abs(hj.y - f.y) < 6) continue;
+        if (mAt(j) > SPACE_FROM - 30) {
+          disc(sx, sy, 3, OUTLINE);
+          disc(sx, sy, 2, '#4a4266');
+          px(sx - 1, sy - 1, 2, 1, '#7a7096');
+          continue;
+        }
         px(sx - 2, sy - 1, 5, 3, j < TREE_TOP ? BARK.dark : OUTLINE);
         px(sx - 1, sy, 3, 1, j < TREE_TOP ? BARK.shadow : mix('#8f7f68', '#5a5180', space));
       }
@@ -514,7 +610,7 @@ const Game = (() => {
   }
 
   function updateBirds(dt) {
-    const m = ch.k;
+    const m = mAt(ch.k);
     if (st.mode === 'climb' && m >= BIRDS_FROM && st.birds.length < 1) {
       const rate = Math.min(0.45, 0.07 + (m - BIRDS_FROM) * 0.0008);
       if (Math.random() < rate * dt) {
@@ -562,13 +658,15 @@ const Game = (() => {
     el.classList.add('show');
   }
 
-  function stepDur() { return Math.max(0.28, 0.42 - ch.k * 0.0002); }
+  // баланс: при быстрых точных тапах набор (хват / длительность перехвата) всегда выше расхода
+  const stepDur = () => 0.42 - 0.18 * hard();
+  const drainRate = () => 6 + 8 * hard();
 
   function tryClimb(tapSide) {
     const next = hold(ch.k + 1);
     if (next.side !== tapSide) {
       if (st.tut) return;
-      st.stamina -= 20;
+      st.stamina -= 15;
       st.shake = 0.18;
       haptic('heavy');
       Sound.play('miss');
@@ -576,7 +674,7 @@ const Game = (() => {
     }
     ch.climbUp(stepDur());
     if (st.tut && ++st.tutSteps >= TUT_STEPS) { st.tut = false; tutDone = true; store.set('tut', 1); }
-    st.stamina = Math.min(100, st.stamina + Math.max(2.5, 6 - ch.k * 0.005));
+    st.stamina = Math.min(100, st.stamina + 6 - 1.5 * hard());
     haptic('light');
     Sound.play('step');
     const h = hold(ch.k), s0 = st;
@@ -590,10 +688,12 @@ const Game = (() => {
   }
 
   function onStepDone() {
-    const k = ch.k;
-    for (const [m, text] of MILESTONES) if (k === m && st.reached < m) { flash(text); Sound.play('jingle'); }
-    st.reached = Math.max(st.reached, k);
-    if (k === TREE_TOP) return startTopOfTree();
+    const m = mAt(ch.k), p = platAt(ch.k);
+    // на привале своя надпись, отметка высоты покажется после него
+    if (p < 1) for (const [mm, text] of MILESTONES) if (m >= mm && st.reached < mm) { flash(text); Sound.play('jingle'); }
+    st.reached = Math.max(st.reached, m);
+    if (p === 0) return startTopOfTree();
+    if (p > 0) return startRest(p);
     if (st.queue && st.mode === 'climb') {
       const s = st.queue;
       st.queue = null;
@@ -611,17 +711,40 @@ const Game = (() => {
     ch.stand(0, PLAT_Y);
     ch.hip = hip;
     st.danceT = 0;
+    st.base = 0;
     Sound.playMusic();
   }
 
   function endDance() {
     Sound.stopMusic();
-    st.afterTree = true;
     st.mode = 'climb';
     ch.onDone = onStepDone;
     ch.hangAt(TREE_TOP + 2);
     flash('Теперь гора');
-    st.reached = Math.max(st.reached, TREE_TOP + 2);
+  }
+
+  // привал: вылезает на уступ, стоит, силы до 100; срыв выше — падение на этот уступ
+  function startRest(p) {
+    st.mode = 'rest';
+    st.queue = null;
+    st.stamina = 100;
+    st.base = p;
+    st.restT = 0;
+    for (const bd of st.birds) if (bd.state !== 'leave') shoo(bd);
+    const hip = { ...ch.hip };
+    ch.stand(0, platY(p));
+    ch.hip = hip;
+    flash(`Привал · ${platM(p)} м`);
+    Sound.play('jingle');
+    haptic('success');
+  }
+
+  function endRest() {
+    const p = st.base;
+    st.mode = 'climb';
+    ch.hangAt(platRow(p) + 2);
+    const ms = MILESTONES.find(([mm]) => mm === platM(p));
+    if (ms) flash(ms[1]);
   }
 
   function fall() {
@@ -629,8 +752,8 @@ const Game = (() => {
     st.fallT = 0;
     st.queue = null;
     for (const bd of st.birds) if (bd.state !== 'leave') shoo(bd);
-    // с горы падает на платформу дерева, с дерева — на землю
-    ch.fall(st.afterTree ? PLAT_Y : 0);
+    // падает на последний пройденный уступ, с дерева — на землю
+    ch.fall(st.base >= 0 ? platY(st.base) : 0);
     haptic('error');
     Sound.play('miss');
     Sound.fallStart();
@@ -675,7 +798,7 @@ const Game = (() => {
   function level() {
     const m = meters(ch.hip.y);
     if (st.mode === 'ready') return [null, m];
-    return [m >= SPACE_FROM ? 'space' : st.afterTree ? 'mountain' : 'tree', m];
+    return [m >= SPACE_FROM ? 'space' : st.base >= 0 ? 'mountain' : 'tree', m];
   }
 
   function update(dt) {
@@ -688,12 +811,13 @@ const Game = (() => {
     if (ch.landed && !wasLanded) { Sound.fallStop(); Sound.play('land'); }
     if (st.mode === 'climb') {
       const sitting = st.birds.some(bd => bd.state === 'sit');
-      // силы тают всё быстрее с высотой: на дереве держишься, если тапаешь быстро, на горе выматывает
-      const drain = 10 + Math.min(20, ch.k * 0.04);
       // во время обучения силы не тратятся
       const learning = st.tut || (sitting && !tutBirdDone);
-      if (!learning && (ch.k > 1 || ch.mode === 'climb')) st.stamina -= drain * dt * (sitting ? 1.7 : 1);
+      if (!learning && (ch.k > 1 || ch.mode === 'climb')) st.stamina -= drainRate() * dt * (sitting ? 1.7 : 1);
       if (st.stamina <= 0) { st.stamina = 0; fall(); }
+    } else if (st.mode === 'rest') {
+      st.restT += dt;
+      if (st.restT > REST_T) endRest();
     } else if (st.mode === 'dance') {
       st.danceT += dt;
       if (st.danceT > 0.45 && ch.mode === 'stand' && !ch.danceBase) {
@@ -717,6 +841,7 @@ const Game = (() => {
     const [, skyBottom] = skyAt(m);
     drawSky(m);
     drawSpace(m);
+    drawDebris(m);
     drawFar(m, skyBottom);
     drawClouds(false, skyBottom);
     const top = st.camY - 4, bottom = st.camY + H + 4;
@@ -725,6 +850,7 @@ const Game = (() => {
     if (bottom > PLAT_Y - 120) drawTree(top, bottom);
     drawGround();
     drawHolds(space);
+    drawLedges(top, bottom, m);
     ch.draw(b, -W / 2 - camX, st.camY);
     for (const bd of st.birds) drawBird(bd);
     drawTutorial();
