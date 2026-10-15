@@ -628,11 +628,15 @@ async function init() {
     await store.set('visits', visits);
     if (visits > FIRST_VISITS) {
       document.getElementById('tabs').classList.remove('hidden');
-      if (TESTERS.includes(username)) document.getElementById('tabStory').classList.remove('hidden');
       document.querySelector('.next-wrap').classList.add('hidden');
       if (captchaPassed) show('stage2');
       else show('greet');
     }
+  }
+  // тестеру меню с сюжеткой видно всегда, даже после сброса заходов
+  if (TESTERS.includes(username)) {
+    document.getElementById('tabs').classList.remove('hidden');
+    document.getElementById('tabStory').classList.remove('hidden');
   }
   let holdsTimer = 0;
   new ResizeObserver(() => { clearTimeout(holdsTimer); holdsTimer = setTimeout(placeHolds, 150); }).observe(document.getElementById('greet'));
