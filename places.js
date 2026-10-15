@@ -319,78 +319,208 @@ const Places = C => {
     signs: [['ЗАПЧАСТИ', 112, -30, 5, '#ff6b6b']],
   };
 
-  // --- Ям-Ижора: площадь, деревянные дома, сцена с баннером, толпа ---
-  const CROWD = [];
-  for (let i = 0; i < 16; i++) CROWD.push([12 + i * 13 + (i % 2) * 4, 6 + (i % 3), ['gop', 'gop2', 'gop3', 'lg2', 'fat'][i % 5]]);
-  for (let i = 0; i < 5; i++) { CROWD.push([4, 26 + i * 18, ['gop2', 'gop3', 'gop'][i % 3], 1]); CROWD.push([FW - 4, 30 + i * 18, ['gop', 'gop3', 'lg2'][i % 3], -1]); }
-  const yam = {
-    solids: [[0, 0, FW, 12], [0, 0, 9, FH], [FW - 9, 0, 9, FH]],
-    ground() {
-      fillScreen('#4a4d55');
-      const [x0, w] = span();
-      R(x0, -90, w, 60, '#f0a868');
-      R(x0, -50, w, 10, '#e88a58');
-      for (let x = Math.floor(x0 / 34) * 34, i = 0; x < x0 + w; x += 34, i++) {
-        const c = ['#7a4a2a', '#4a6a8a', '#8a3a2a', '#5a7a4a'][i % 4];
-        R(x + 2, -40, 30, 36, c);
-        for (let y = -38; y < -4; y += 3) R(x + 2, y, 30, 1, '#00000022');
-        for (let k = 0; k < 6; k++) R(x + 2 + k * 3, -46 + k, 30 - k * 6, 1, '#3a2a22');
-        R(x + 8, -30, 7, 8, '#ffe8a0'); R(x + 20, -30, 7, 8, '#ffe8a0');
-        R(x + 8, -26, 7, 1, c); R(x + 11, -30, 1, 8, c);
+  // --- космос: каменная плита висит перед чёрной дырой ---
+  const bh = document.createElement('canvas');
+  let bhKey = '';
+  const rnd = n => { const v = Math.sin(n * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
+  // фон рисуется один раз на размер экрана: звёзды, туманности, диск аккреции, линзированное кольцо, горизонт
+  function paintBlackHole(W, H, cx, cy, R) {
+    bh.width = W; bh.height = H;
+    const x = bh.getContext('2d');
+    x.fillStyle = '#03020a';
+    x.fillRect(0, 0, W, H);
+    for (const [fx, fy, r, col] of [[0.15, 0.25, 0.5, 'rgba(90,40,160,.35)'], [0.85, 0.2, 0.45, 'rgba(30,70,160,.3)'], [0.6, 0.8, 0.5, 'rgba(160,40,90,.22)'], [0.3, 0.75, 0.35, 'rgba(40,120,150,.2)']]) {
+      const gr = x.createRadialGradient(fx * W, fy * H, 0, fx * W, fy * H, r * W);
+      gr.addColorStop(0, col);
+      gr.addColorStop(1, 'rgba(0,0,0,0)');
+      x.fillStyle = gr;
+      x.fillRect(0, 0, W, H);
+    }
+    for (let i = 0; i < 420; i++) {
+      const b = rnd(i * 3.1);
+      x.fillStyle = b > 0.97 ? '#ffffff' : b > 0.85 ? '#cfd8ff' : b > 0.6 ? '#8a90b8' : '#4a4e6a';
+      x.fillRect(Math.floor(rnd(i) * W), Math.floor(rnd(i * 7.7) * H), b > 0.97 ? 2 : 1, 1);
+    }
+    // свечение вокруг дыры
+    const glow = x.createRadialGradient(cx, cy, R * 0.8, cx, cy, R * 4);
+    glow.addColorStop(0, 'rgba(255,170,80,.35)');
+    glow.addColorStop(0.4, 'rgba(255,90,40,.12)');
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = glow;
+    x.fillRect(0, 0, W, H);
+    const disk = (from, to) => {
+      for (let i = 0; i < 70; i++) {
+        const k = i / 70, rx = R * (1.25 + k * 2.4), ry = rx * 0.2;
+        x.strokeStyle = `rgba(${255},${Math.round(240 - k * 170)},${Math.round(200 - k * 190)},${(1 - k) * 0.55})`;
+        x.lineWidth = 1.2;
+        x.beginPath();
+        x.ellipse(cx, cy, rx, ry, -0.12, from, to);
+        x.stroke();
       }
-      for (let y = 0; y < FH; y += 7) for (let x = (y / 7 % 2) * 5; x < FW; x += 10) R(x, y, 9, 6, (x + y) % 3 ? '#6a6d76' : '#5e616a');
-      // сцена с баннером
-      box(70, 2, 84, 10, 8, '#5a3a22', '#3e2616');
-      R(74, -36, 76, 18, OUTLINE);
-      R(75, -35, 74, 16, '#a8141e');
-      R(70, -40, 2, 50, '#3a3a40'); R(152, -40, 2, 50, '#3a3a40');
-    },
-    props: [[14, () => {
-      const { ox, oy } = C.view();
-      for (const [x, y, look, face] of CROWD) Actors.draw(b, Actors.DEFS[look], ox + x, oy + y, { dir: face ? 'side' : 'down', face: face || 1, f: -1, bob: Math.floor(C.st.t / 0.4 + x) % 2, blink: false });
-    }]],
-    signs: [['РАЗВИТИЕ', 112, -24, 8, '#ffd23f']],
-  };
-
-  // --- финал: все за столом, в центре банка с боссом ---
-  const final = {
+    };
+    disk(Math.PI, Math.PI * 2);
+    // линзированное кольцо: задняя часть диска видна над и под горизонтом
+    for (let i = 0; i < 26; i++) {
+      const k = i / 26;
+      x.strokeStyle = `rgba(255,${Math.round(225 - k * 120)},${Math.round(170 - k * 140)},${(1 - k) * 0.6})`;
+      x.lineWidth = 1;
+      x.beginPath();
+      x.ellipse(cx, cy, R * (1.08 + k * 0.7), R * (1.08 + k * 0.7) * 0.95, -0.12, 0, Math.PI * 2);
+      x.stroke();
+    }
+    x.fillStyle = '#000000';
+    x.beginPath();
+    x.arc(cx, cy, R, 0, Math.PI * 2);
+    x.fill();
+    x.strokeStyle = 'rgba(255,245,220,.95)';
+    x.lineWidth = 1.2;
+    x.beginPath();
+    x.arc(cx, cy, R * 1.04, 0, Math.PI * 2);
+    x.stroke();
+    disk(0, Math.PI);
+  }
+  const space = {
     solids: [],
     ground() {
-      fillScreen('#1a1210');
-      for (let y = 0; y < FH; y += 6) { R(0, y, FW, 6, (y / 6) % 2 ? '#7f5233' : '#875838'); R(0, y + 5, FW, 1, '#5e3a22'); }
-      R(0, -44, FW, 44, '#f0e6d2');
-      R(0, -6, FW, 6, '#d8ccb4');
-      R(86, -38, 52, 26, OUTLINE);
-      R(87, -37, 50, 24, '#1a2a4a');
-      for (let i = 0; i < 12; i++) R(90 + (i * 17) % 44, -35 + (i * 7) % 18, 1, 1, '#ffffff');
-      R(111, -37, 2, 24, OUTLINE);
-      // гирлянда флажков
-      for (let i = 0; i < 22; i++) {
-        const x = 4 + i * 10, y = -42 + Math.round(Math.sin(i * 0.6) * 2);
+      const { W, H, ox, oy } = C.view();
+      const cx = Math.round(W / 2), cy = oy - 30, rad = Math.round(Math.min(W, H) * 0.12);
+      const key = `${W}x${H}x${cy}`;
+      if (key !== bhKey) { bhKey = key; paintBlackHole(W, H, cx, cy, rad); }
+      b.drawImage(bh, 0, 0);
+      // вещество в диске крутится
+      const t = C.st.t;
+      for (let i = 0; i < 90; i++) {
+        const k = rnd(i * 5.3), a = t * (0.9 - k * 0.6) + i * 2.4, rx = rad * (1.3 + k * 2.2);
+        const px = cx + Math.cos(a) * rx, py = cy + Math.sin(a) * rx * 0.2 - Math.cos(a) * rx * 0.012;
+        if (Math.sin(a) < 0 && Math.hypot(px - cx, (py - cy) * 1.05) < rad * 1.05) continue;
+        b.globalAlpha = 0.5 + 0.5 * (1 - k);
+        b.fillStyle = k < 0.3 ? '#fff6e0' : k < 0.65 ? '#ffb35a' : '#ff6a3a';
+        b.fillRect(Math.round(px), Math.round(py), k < 0.3 ? 2 : 1, 1);
+      }
+      b.globalAlpha = 1;
+      // каменная плита: неровный край, кратеры, светящиеся трещины
+      for (let y = -4; y < FH + 6; y++) {
+        const edge = 6 + Math.round(Math.sin(y * 0.3) * 3 + rnd(y) * 3);
+        R(-edge, y, FW + edge * 2, 1, y < 0 || y > FH ? '#2a2830' : (y % 7 === 0 ? '#3e3b46' : '#46434e'));
+        R(-edge - 1, y, 1, 1, '#6a6578');
+        R(FW + edge, y, 1, 1, '#1e1c24');
+      }
+      R(-10, FH + 6, FW + 20, 3, '#1a1820');
+      for (let i = 0; i < 160; i++) R((i * 53) % FW, (i * 31) % FH, 2, 1, i % 3 ? '#3a3742' : '#56525e');
+      for (const [x0, y0, r] of [[40, 30, 7], [170, 22, 5], [190, 90, 8], [70, 100, 6], [130, 60, 4]]) { disc(x0, y0, r + 1, '#2e2c34'); disc(x0, y0, r, '#3a3742'); disc(x0 - 1, y0 - 1, r - 2, '#34313c'); }
+      b.globalAlpha = 0.5 + 0.3 * Math.sin(t * 3);
+      for (const [x0, y0, x1, y1] of [[20, 70, 60, 84], [150, 40, 200, 30], [100, 110, 130, 96]]) for (let i = 0; i <= 20; i++) R(Math.round(x0 + (x1 - x0) * i / 20), Math.round(y0 + (y1 - y0) * i / 20 + Math.sin(i) * 1.5), 1, 1, '#b388ff');
+      b.globalAlpha = 1;
+    },
+    props: [],
+    signs: [],
+  };
+
+  // --- дома у Артемия: гостиная с кухонным столом, тортом и всем барахлом ---
+  const home = {
+    solids: [],
+    ground() {
+      fillScreen('#120c0a');
+      const t = C.st.t;
+      // пол: ёлочка из досок и ковёр под столом
+      for (let y = 0; y < FH; y += 4) for (let x = (y / 4 % 2) * 6; x < FW; x += 12) {
+        R(x, y, 11, 4, (x + y) % 3 ? '#8a5a38' : '#7c5032');
+        R(x, y + 3, 11, 1, '#5e3a22');
+      }
+      R(56, 40, 112, 48, '#7a1f2a');
+      R(58, 42, 108, 44, '#9b2c36');
+      for (let x = 62; x < 164; x += 8) { R(x, 46, 4, 2, '#e0b060'); R(x + 2, 80, 4, 2, '#e0b060'); }
+      for (let y = 50; y < 78; y += 6) { R(62, y, 2, 2, '#e0b060'); R(160, y, 2, 2, '#e0b060'); }
+      // стена: обои с ромбиками, плинтус
+      R(-8, -48, FW + 16, 48, '#e9dcc4');
+      for (let y = -46; y < -4; y += 8) for (let x = (y / 8 % 2) * 6 - 6; x < FW + 8; x += 12) { R(x, y, 1, 1, '#d4c3a4'); R(x - 1, y + 1, 3, 1, '#d4c3a4'); R(x, y + 2, 1, 1, '#d4c3a4'); }
+      R(-8, -4, FW + 16, 4, '#b89a74');
+      R(-8, -4, FW + 16, 1, '#d8bf9a');
+      // окно ночью: город, луна, шторы
+      R(84, -42, 56, 30, OUTLINE);
+      R(85, -41, 54, 28, '#14203c');
+      disc(130, -34, 4, '#f4ecc8');
+      for (let i = 0; i < 9; i++) { const h = 6 + (i * 7) % 9; R(86 + i * 6, -13 - h, 5, h, '#22304e'); if (i % 2) R(88 + i * 6, -10 - h, 1, 1, '#ffd36a'); }
+      R(111, -41, 2, 28, '#e9dcc4');
+      R(84, -28, 56, 1, '#e9dcc4');
+      for (const x of [78, 140]) { R(x, -46, 8, 38, '#3d6f8a'); R(x + 2, -46, 1, 38, '#5a8eac'); R(x + 5, -46, 1, 38, '#2c5468'); }
+      R(74, -47, 76, 2, '#5e3a22');
+      // рамки с фото компашки, часы
+      for (const [x, y, c] of [[16, -40, '#3d6f8a'], [32, -36, '#c0612a'], [168, -40, '#2e8a57'], [186, -36, '#7b3fa0']]) {
+        R(x, y, 12, 10, '#5e3a22'); R(x + 1, y + 1, 10, 8, c); R(x + 3, y + 3, 2, 3, '#f0c4a2'); R(x + 7, y + 3, 2, 3, '#f0c4a2');
+      }
+      disc(52, -34, 6, OUTLINE);
+      disc(52, -34, 5, '#fbf7f0');
+      R(52, -38, 1, 4, OUTLINE); R(52, -34, 3, 1, OUTLINE);
+      // гирлянда и надпись
+      for (let i = 0; i < 24; i++) {
+        const x = -4 + i * 10, y = -46 + Math.round(Math.sin(i * 0.6) * 2);
         R(x, y, 6, 1, '#3a2a22');
         for (let k = 0; k < 4; k++) R(x + k, y + 1 + k, 6 - k * 2, 1, ['#e74c3c', '#f1c40f', '#3498db', '#2ecc71', '#9b59b6'][i % 5]);
       }
-    },
-    props: [[74, () => {
-      box(64, 54, 96, 22, 12, '#f6f2ea', '#c8bfae');
-      for (let i = 0; i < 6; i++) R(70 + i * 15, 44 + (i % 2) * 6, 6, 3, ['#e0a030', '#c0392b', '#d35400'][i % 3]);
-      // банка с крошечным Развитием: стучит изнутри и подпрыгивает
-      const t = C.st.t, hop = Math.abs(Math.sin(t * 5)) * 4, jx = 112, jy = 60;
-      R(jx - 9, jy - 26, 18, 25, OUTLINE);
-      R(jx - 8, jy - 25, 16, 23, '#cfe8f0');
-      R(jx - 9, jy - 29, 18, 4, '#c0392b');
-      R(jx - 8, jy - 28, 16, 2, '#e05a4a');
-      const by = jy - 4 - Math.round(hop);
-      R(jx - 2, by - 3, 4, 4, '#2b2f3a');
-      disc(jx, by - 7, 4, OUTLINE);
-      disc(jx, by - 7, 3, '#f2c4a4');
-      R(jx - 2, by - 8, 1, 1, OUTLINE); R(jx + 1, by - 8, 1, 1, OUTLINE);
-      b.globalAlpha = 0.45;
-      R(jx - 6, jy - 23, 2, 18, '#ffffff');
+      // торшер светит
+      b.globalAlpha = 0.18 + 0.03 * Math.sin(t * 2);
+      disc(214, -6, 26, '#ffd98a');
       b.globalAlpha = 1;
-    }]],
-    signs: [['С ДНЁМ РОЖДЕНИЯ, АРТЕМИЙ!', 112, -46, 5.5, '#c0392b']],
+    },
+    props: [
+      // полка с книгами и медалью за скалолазание
+      [-2, () => {
+        box(4, -2, 40, 6, 22, '#6a4224', '#4a2e18');
+        [['#c0392b', 3], ['#2f5fb0', 2], ['#e0a030', 3], ['#2e8a57', 2], ['#7a3fa0', 3], ['#e0e0e0', 2]].forEach(([c, w], i) => R(6 + i * 5, -22, w + 1, 9, c));
+        R(34, -20, 6, 6, '#e0a030'); R(36, -24, 2, 4, '#c0392b');
+        R(6, -11, 34, 1, '#4a2e18');
+        R(8, -10, 8, 6, '#3a7a3a'); R(9, -12, 2, 3, '#5fae4a'); R(13, -13, 2, 4, '#5fae4a');
+      }],
+      // телевизор на тумбе, на экране игра
+      [10, () => {
+        box(178, 2, 40, 8, 10, '#5e3a22', '#3e2616');
+        R(184, -26, 28, 18, OUTLINE);
+        R(185, -25, 26, 16, '#1a2a4a');
+        R(187, -16, 6, 4, '#f0c4a2'); R(195, -20, 4, 8, '#7a593b'); R(203, -14, 6, 2, '#2e8a57');
+        R(197, -8, 2, 3, OUTLINE);
+        R(186, 2, 6, 3, '#26262e'); R(194, 3, 4, 2, '#b05cff');
+      }],
+      // диван справа с подушками
+      [100, () => {
+        box(184, 64, 38, 34, 10, '#3d6f8a', '#2c5468');
+        box(184, 64, 6, 34, 18, '#335f78', '#24485c');
+        R(194, 58, 10, 8, '#e0a030'); R(208, 60, 9, 8, '#c0392b');
+      }],
+      // монстера в кадке слева и торшер справа сзади
+      [104, () => {
+        box(6, 96, 14, 10, 12, '#c8742e', '#9a5420');
+        for (const [x, y, r] of [[13, 76, 9], [6, 82, 6], [20, 80, 7], [13, 68, 6]]) { disc(x, y, r + 1, OUTLINE); disc(x, y, r, '#2e7d32'); disc(x - 2, y - 2, Math.max(1, r - 4), '#4caf50'); }
+      }],
+      [6, () => { R(213, -30, 2, 36, '#3a3a40'); R(208, -36, 12, 6, '#ffe7a8'); R(208, -30, 12, 1, '#c8a060'); R(209, 4, 10, 2, '#3a3a40'); }],
+      // стулья по бокам стола
+      [62, () => { box(40, 56, 12, 10, 6, '#6a4224', '#4a2e18'); box(40, 56, 3, 10, 16, '#6a4224', '#4a2e18', 6); }],
+      [63, () => { box(172, 56, 12, 10, 6, '#6a4224', '#4a2e18'); box(181, 56, 3, 10, 16, '#6a4224', '#4a2e18', 6); }],
+      // стол: торт с 16 свечками, пицца, газировка, тарелки; шарики «16»
+      [74, () => {
+        box(64, 50, 96, 24, 12, '#f6f2ea', '#c8bfae');
+        for (const [x, y] of [[74, 42], [146, 42], [74, 58], [146, 58]]) { disc(x, y, 5, '#d8d0c4'); disc(x, y, 4, '#ffffff'); }
+        disc(96, 52, 8, OUTLINE); disc(96, 52, 7, '#e0a030');
+        for (const [x, y] of [[93, 50], [99, 53], [95, 56], [100, 48]]) R(x, y, 2, 2, '#c0392b');
+        R(132, 36, 4, 10, '#2e8a57'); R(133, 34, 2, 2, '#e0e0e0'); R(138, 38, 4, 8, '#c0392b'); R(139, 36, 2, 2, '#e0e0e0');
+        box(104, 48, 18, 12, 9, '#ff8fb8', '#d4688f');
+        R(104, 41, 18, 2, '#ffffff');
+        for (let i = 0; i < 8; i++) {
+          const x = 106 + (i % 4) * 4, y = 34 + Math.floor(i / 4) * 4;
+          R(x, y, 1, 3, ['#3498db', '#f1c40f', '#2ecc71', '#e74c3c'][i % 4]);
+          R(x, y - 1 - (Math.floor(C.st.t * 8 + i) % 2), 1, 1, '#ffd23f');
+        }
+      }],
+      [20, () => {
+        for (const [x, c, d] of [[30, '#e74c3c', 0], [38, '#3498db', 1.3]]) {
+          const y = -8 + Math.round(Math.sin(C.st.t * 2 + d) * 2);
+          R(x, y, 1, 26, '#c8c8c8');
+          disc(x, y - 6, 6, OUTLINE); disc(x, y - 6, 5, c); R(x - 2, y - 9, 2, 2, '#ffffff');
+        }
+      }],
+    ],
+    signs: [['С ДНЁМ РОЖДЕНИЯ, АРТЕМИЙ!', 112, -50, 5, '#c0392b']],
   };
 
-  return { oka, food, bk, bkin, tower, pizza1, pizza2, yam, final, FW, FH, TOWER_TOP: TOP };
+  return { oka, food, bk, bkin, tower, pizza1, pizza2, space, home, FW, FH, TOWER_TOP: TOP };
 };

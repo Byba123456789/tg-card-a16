@@ -251,7 +251,8 @@
     wake: { lids: 0, blur: 1, rot: 0, hand: 0, lift: 0, buzz: false },
     place: null, hasKey: false, bkOpen: false, auto: null, npcs: [], card: null, cardA: 0, hurtFlash: 0, ultFlash: 0,
     swingId: 0, map: null, done: {}, pop: null, heroPose: null, untie: null, deadMsg: false,
-    heroZ: 0, heroRot: 0, bike: null, tramp: null, laptop: null, jar: null, code: 0, credits: 0, noteA: 0, skip: false,
+    heroZ: 0, heroRot: 0, bike: null, tramp: null, credits: 0, skip: false,
+    fp: null, camX: 0, camY: 0, tendrils: null, portal: null, claude: null, orb: null, boom: null,
   };
   let dlg = null, tapWait = null;
 
@@ -414,13 +415,13 @@
     { id: 'oka', name: 'ОКА', sub: '«там, куда вы вечно катались»', at: [0.67, 0.48], save: 'roma' },
     { id: 'fnaf', name: 'Квест ФНАФ', sub: '«там, где вы обосрались, держа дверь»', at: [0.37, 0.2], save: 'andrey' },
     { id: 'tower', name: 'Вышка', sub: '«туда лезли все, кроме Андрея»', at: [0.16, 0.6], save: 'anton' },
-    { id: 'yam', name: '???', sub: 'Сначала спаси всех', at: [0.87, 0.8], locked: true },
+    { id: 'yam', name: '???', sub: 'Сначала спаси всех', at: [0.87, 0.8], locked: true, save: 'yam' },
   ];
   const yamOpen = () => ['roma', 'anton', 'andrey'].every(k => st.done[k]);
   const locked = p => p.locked && !yamOpen();
   const playable = p => !p.home && (TESTER || (!st.done[p.save] && !locked(p)));
-  const pinName = p => p.id === 'yam' && yamOpen() ? 'Ям-Ижора' : p.name;
-  const pinSub = p => p.id === 'yam' && yamOpen() ? '«я жду вас уже в Ям-Ижоре»' : p.sub;
+  const pinName = p => p.id === 'yam' && st.done.yam ? 'Космос' : p.name;
+  const pinSub = p => p.id === 'yam' && yamOpen() ? 'Что-то тут не так…' : p.sub;
   const pinXY = p => [Math.round(p.at[0] * W), Math.round(22 + p.at[1] * (H - 40))];
   const mapCard = () => { const cw = Math.min(230, W - 20); return [Math.round(W / 2 - cw / 2), H - 46, cw, 40]; };
   const mapBtn = () => { const [x, y, w] = mapCard(); return [x + w - 60, y + 22, 52, 13]; };
@@ -533,7 +534,7 @@
   }
 
   // ---------- квест «Рома»: ОКА ----------
-  const PID = { 'Артемий': 'artemiy', 'Рома': 'roma', 'Пацан': 'gop', 'Жирный': 'fat', 'Спасатель': 'gop', 'Антон': 'anton', 'Андрей': 'andrey', 'Развитие': 'boss' };
+  const PID = { 'Артемий': 'artemiy', 'Рома': 'roma', 'Пацан': 'gop', 'Жирный': 'fat', 'Спасатель': 'lg', 'Антон': 'anton', 'Андрей': 'andrey', 'Развитие': 'boss', 'Клод': 'claude' };
   const DOOR = [FW / 2, -2];
 
   async function card(title, sub) {
@@ -754,22 +755,7 @@
     st.bike = null;
     const left = FRIENDS.filter(k => !st.done[k]).length;
     await card(`${name} спасён`, left ? `Осталось спасти: ${left}` : 'Вся компашка в сборе');
-    if (!left) await note(name);
-  }
-
-  // записка у последнего спасённого: путь в Ям-Ижору
-  async function note(who) {
-    st.mode = 'note';
-    st.noteA = 0;
-    st.fade = 0;
-    Sfx.play.rope();
-    await say('normal', 'Пацаны, тут записка', who);
-    await tween(st, 'noteA', 1, 0.5);
-    await tap();
-    await tween(st, 'noteA', 0, 0.3);
-    await say('angry', 'Ну пиздец. Ям-Ижора, значит');
-    await say('smirk', 'Погнали');
-    st.fade = 1;
+    if (!left) await questFinal(name);
   }
 
   // ---------- квест «Антон»: вышка у Пушкина ----------
@@ -910,42 +896,66 @@
     await rescued('Андрей', 'andrey');
   }
 
-  // ---------- финал: Ям-Ижора, босс «Развитие» ----------
-  const BOSS_HP = 240;
-  async function questFinal() {
-    await card('Ям-Ижора', 'Полтора часа спустя');
-    enterArena('yam', 112, FH + 10, 'up', FRIENDS);
-    for (const [i, a] of fight.allies().entries()) { a.x = 92 + i * 20; a.y = FH + 20; }
+  // ---------- финал: записка, удар по голове, космос, босс «Развитие», Махорага, дом ----------
+  const BOSS_HP = 170, DARK_HP = 60;
+  async function questFinal(who = 'Рома') {
+    // записка от первого лица — и удар сзади
     st.lock = true;
-    await tween(st, 'fade', 0, 0.6);
-    await walkTo(112, 92);
-    for (const [i, a] of fight.allies().entries()) { a.x = 86 + i * 26 - (i === 2 ? 13 : 0); a.y = 100 + (i === 2 ? 8 : 0); a.dir = 'up'; }
+    st.fp = { k: 0, text: 0, fall: 0 };
+    st.mode = 'fpnote';
+    st.fade = 0;
+    Sfx.play.rope();
+    await say('normal', 'Пацаны, тут записка', who);
+    await tween(st.fp, 'k', 1, 0.7);
+    await tween(st.fp, 'text', 1, 2.4);
+    await wait(1.4);
+    Sfx.play.crash();
+    Sfx.play.land();
+    st.shake = 0.5;
+    st.ultFlash = 0.2;
+    vib();
+    await tween(st.fp, 'fall', 1, 0.9);
+    st.fade = 1;
+    await wait(1.2);
+    // космос: все лежат, потом поднимаются
+    enterArena('space', 112, 92, 'up', FRIENDS);
+    for (const [i, a] of fight.allies().entries()) Object.assign(a, { x: [80, 146, 112][i], y: [96, 98, 108][i], rot: Math.PI / 2 * (i % 2 ? -1 : 1) });
+    st.heroRot = Math.PI / 2;
+    await tween(st, 'fade', 0, 1.6);
+    await wait(0.6);
+    st.heroRot = 0;
+    for (const a of fight.allies()) a.rot = 0;
+    Sfx.play.land();
+    await say('shock', 'бля где мы', 'Андрей');
+    await say('shock', 'ЭТО ЧЁРНАЯ ДЫРА?!', 'Антон');
+    await say('normal', 'Мы в космосе. Без скафандров. Охуенно', 'Рома');
     let hp = BOSS_HP;
-    const wave = () => [[{ t: 'boss', look: 'boss', at: [112, -10], to: [112, 44], hp }]];
+    const wave = () => [[{ t: 'boss', look: 'boss', at: [112, -20], to: [112, 40], hp }]];
     fight.start(wave(), { calm: true });
     await until(() => fight.arrived());
-    await say('smirk', 'О, именинник. Долго же ты', 'Развитие');
-    await say('angry', 'Ты кто вообще такой?');
-    await say('smirk', 'Я — Развитие. Тебе 16, пора развиваться. А друзья тебя тормозят', 'Развитие');
+    await say('smirk', 'Я — Развитие', 'Развитие');
+    await say('smirk', 'Тебе 16. Пора развиваться', 'Развитие');
+    await say('angry', 'Это ты нас вырубил?');
+    await say('smirk', 'Я вас развил. Почти', 'Развитие');
     await say('angry', 'Слышь, голова, ты чо, в себя поверил?', 'Рома');
     await say('shock', 'АХАХАХА НУ И БАШКА', 'Антон');
-    await say('shock', 'бля он реально огромный', 'Андрей');
     await say('smirk', 'Ща я вас всех прокачаю', 'Развитие');
     await say('angry', 'Иди нахуй');
     st.lock = false;
     fight.engage();
-    st.task = 'Победи Развитие';
     Sfx.music('fight');
+    // 1. бой на земле до первой «смерти»; проиграл — та же драка, босс не лечится
+    st.task = 'Победи Развитие';
     for (;;) {
       await until(() => {
         if (st.skip) { st.skip = false; fight.skip(); }
-        return fight.S.phase3 || fight.S.dead;
+        return fight.S.event === 'down' || fight.S.dead;
       });
       if (!fight.S.dead) break;
-      // проиграл: та же драка, но босс не лечится
       hp = Math.max(Math.ceil(BOSS_HP * 0.3), fight.boss().hp);
       st.lock = true;
       st.task = '';
+      Sfx.stopMusic();
       Sfx.play.lose();
       await wait(0.6);
       await tween(st, 'fade', 1, 0.6);
@@ -957,72 +967,164 @@
       fight.setAllies(FRIENDS);
       st.lock = false;
       st.task = 'Победи Развитие';
+      Sfx.music('fight');
       await tween(st, 'fade', 0, 0.5);
     }
-    // фаза 3: «Сверхразвитие» — раскидывает всех и замахивается добить
+    // 2. падает, тьма его поглощает, он взлетает
+    const bs = fight.boss();
     st.task = '';
     st.lock = true;
     fight.S.script = true;
-    const bs = fight.boss();
-    fight.skip();
-    bs.scale = 1;
-    fight.pop('СВЕРХРАЗВИТИЕ!', bs.x, bs.y - 60);
-    Sfx.stopMusic();
+    fight.S.event = null;
+    fight.clearShots();
+    Sfx.play.kill();
+    st.shake = 0.3;
+    await tween(bs, 'rot', Math.PI / 2, 0.5);
+    Sfx.play.land();
+    await wait(0.8);
+    await say('smirk', 'Изи', 'Антон');
     Sfx.play.grow();
-    await Promise.all([tween(bs, 'head', 30, 1.4), tween(bs, 'x', 112, 1.4), tween(bs, 'y', 50, 1.4)]);
-    st.shake = 0.5;
+    await tween(bs, 'dark', 1, 1.4);
+    await tween(bs, 'rot', 0, 0.4);
+    bs.max = bs.hp = DARK_HP;
+    bs.head = 17;
+    await tween(bs, 'z', 34, 1);
+    fight.pop('ТЁМНОЕ РАЗВИТИЕ', bs.x, bs.y - 84);
+    await say('shock', 'бля он чо, воскрес', 'Андрей');
+    await say('shock', 'И летает. Пиздец', 'Рома');
+    await say('angry', 'ЧТО ДЕЛАТЬ ТО', 'Антон');
+    await say('think', 'Уворачиваться от его умных слов. А когда сядет — бить');
+    // 3. летает и стреляет словами; садится и кастует
+    Object.assign(bs, { stage: 'air', airT: 7, cool: 1 });
+    fight.S.script = false;
+    fight.S.noDeath = true;
+    st.lock = false;
+    st.task = 'Уворачивайся от умных слов';
+    const nextEvent = () => until(() => {
+      if (st.skip) { st.skip = false; fight.skip(); }
+      return !!fight.S.event;
+    });
+    await nextEvent();
+    // первый каст «Выгорание»: у всех половина HP
+    fight.S.event = null;
+    fight.pop('ВЫГОРАНИЕ!', bs.x, bs.y - 74);
     Sfx.play.slam();
+    Sfx.play.grow();
+    st.shake = 0.4;
+    st.hurtFlash = 0.3;
+    fight.S.hp = Math.max(1, Math.ceil(fight.S.hp / 2));
+    for (const a of fight.allies()) fight.pop('-50%', a.x, a.y - 30);
+    await say('angry', 'Сука… полхп снёс');
+    st.task = 'Бей, когда он кастует';
+    await nextEvent();
+    // второй каст должен был всех добить — катсцена
+    fight.S.event = null;
+    await mahoraga(bs);
+  }
+
+  async function mahoraga(bs) {
+    st.task = '';
+    st.lock = true;
+    fight.S.script = true;
+    fight.clearShots();
+    Sfx.stopMusic();
+    Object.assign(bs, { atk: null, z: 0, stage: 'hold' });
+    // босс встаёт слева, справа будет портал
+    await Promise.all([tween(bs, 'x', 86, 0.6), tween(bs, 'y', 50, 0.6)]);
+    fight.pop('ПОРА РАЗВИВАТЬСЯ!', bs.x, bs.y - 74);
+    // тьма хватает всех, кроме Артемия, и раскидывает
+    const al = fight.allies();
+    st.tendrils = al;
+    Sfx.play.grow();
+    await Promise.all(al.map(a => tween(a, 'z', 22, 0.8)));
+    await wait(0.3);
+    const spots = [[26, 44], [200, 56], [44, 112]];
+    Sfx.play.whoosh();
+    await Promise.all(al.map((a, i) => Promise.all([tween(a, 'x', spots[i][0], 0.5), tween(a, 'y', spots[i][1], 0.5), tween(a, 'z', 0, 0.5)])));
+    st.tendrils = null;
+    for (const [i, a] of al.entries()) a.rot = Math.PI / 2 * (i % 2 ? -1 : 1);
+    Sfx.play.crash();
+    st.shake = 0.5;
     vib();
-    st.ultFlash = 0.25;
-    st.heroRot = Math.PI / 2;
-    Object.assign(pl, { x: 112, y: 96 });
-    for (const [i, a] of fight.allies().entries()) Object.assign(a, { rot: Math.PI / 2 * (i % 2 ? -1 : 1), x: [70, 154, 40][i], y: [92, 96, 104][i] });
-    await wait(1);
-    await say('smirk', 'Вот и всё развитие', 'Развитие');
-    await tween(bs, 'y', 74, 0.8);
-    bs.atk = { kind: 'pump', t: 99, at: { x: pl.x, y: pl.y } };
-    await wait(0.7);
-    const roma = fight.allies().find(a => a.id === 'roma');
-    fight.pop('!', roma.x, roma.y - 34);
+    Object.assign(pl, { x: 112, y: 92, dir: 'up' });
+    await say('smirk', 'Вот щас и будем развиваться', 'Развитие');
+    await say('angry', 'Отпусти их, уёбок');
+    await say('smirk', 'Развитие требует жертв', 'Развитие');
+    await say('angry', 'Да пошёл ты нахуй со своим развитием');
+    // камера на Рому
+    const roma = al.find(a => a.id === 'roma');
+    await Promise.all([tween(st, 'camX', roma.x - 112, 0.9), tween(st, 'camY', roma.y - 70, 0.9)]);
+    fight.pop('!', roma.x, roma.y - 22);
     Sfx.play.pop();
     await wait(0.8);
-    await say('shock', 'СТОП. Я забыл… блять, мы долбоёбы.', 'Рома');
-    await say('shock', 'Что?');
-    await say('normal', 'Погоди секунду', 'Рома');
-    roma.rot = 0;
-    roma.dir = 'side'; roma.face = 1;
-    st.laptop = { x: roma.x + 9, y: roma.y };
-    st.code = 0;
-    await tween(st, 'code', 1, 0.5);
-    Sfx.piano(3);
-    await wait(1);
-    bs.atk = null;
-    Sfx.play.shrink();
-    await Promise.all([tween(bs, 'scale', 0.18, 1.8), tween(bs, 'head', 13, 1.8)]);
-    st.jar = { x: bs.x, y: bs.y };
-    Sfx.play.clink();
-    st.shake = 0.2;
-    await tween(st, 'code', 0, 0.5);
-    st.laptop = null;
-    st.heroRot = 0;
-    for (const a of fight.allies()) a.rot = 0;
+    await say('hurt', 'With this treasure…', 'Рома');
+    await say('angry', 'Ты чо, аниме насмотрелся?! Помоги мне!');
+    await say('hurt', 'I summon…', 'Рома');
+    await say('facepalm', 'Вот еблан');
+    await say('hurt', 'MAHORAGA!', 'Рома');
+    // оранжевые пальцы рвут пространство, из портала выходит Клод
+    const P0 = { x: 178, y: 60 };
+    await Promise.all([tween(st, 'camX', 30, 0.8), tween(st, 'camY', -8, 0.8)]);
+    st.portal = { x: P0.x, y: P0.y - 24, fingers: 0, open: 0 };
+    Sfx.play.charge();
+    st.shake = 0.3;
+    await tween(st.portal, 'fingers', 1, 1.2);
+    Sfx.play.grow();
+    st.shake = 0.5;
+    vib();
+    await tween(st.portal, 'open', 1, 1);
+    st.claude = { x: P0.x, y: P0.y, k: 0, aim: 0, snap: false };
+    Sfx.play.land();
+    await tween(st.claude, 'k', 1, 0.8);
+    await tween(st.portal, 'open', 0, 0.6);
+    st.portal = null;
+    await say('normal', '#%{€~€\\£', 'Клод');
+    // поза: рука к боссу, на кончиках пальцев зелёный шар с нулём
+    await tween(st.claude, 'aim', 1, 0.4);
+    st.orb = { x: P0.x - 54, y: P0.y - 37, r: 0 };
+    Sfx.play.charge();
+    await tween(st.orb, 'r', 6, 0.8);
+    await say('hurt', 'Он щас умножит тебя на ноль', 'Рома');
+    await say('facepalm', 'Ебанная отсылка…');
+    await Promise.all([tween(st, 'camX', 0, 0.5), tween(st, 'camY', 0, 0.5)]);
+    // выстрел: шар летит, босс испаряется со взрывом
+    Sfx.play.zap();
+    await Promise.all([tween(st.orb, 'x', bs.x, 0.55), tween(st.orb, 'y', bs.y - 22, 0.55)]);
+    st.orb = null;
+    st.boom = { x: bs.x, y: bs.y - 22, t: 0 };
+    Sfx.play.boom();
+    st.shake = 0.8;
+    st.ultFlash = 0.5;
+    vib();
+    fight.puff(bs.x, bs.y - 22, 44, ['#4ade80', '#ffffff', '#2a0a3a', '#f2c4a4'], 170);
+    fight.remove(bs);
+    await tween(st.boom, 't', 1, 1.2);
+    st.boom = null;
+    await wait(0.6);
+    // щелчок пальцами — и все дома
+    st.claude.snap = true;
     await wait(0.4);
-    await say('smirk', 'Ну всё. Развился');
-    await say('shock', 'ВЫПУСТИТЕ МЕНЯ', 'Развитие');
-    await tween(st, 'fade', 1, 1);
-    // последний кадр: все за столом, банка с боссом в центре
-    st.jar = null;
-    enterArena('final', 64, 66, 'side', []);
+    Sfx.play.snap();
+    st.ultFlash = 0.6;
+    await tween(st, 'fade', 1, 0.8);
+    st.claude = null;
+    await homeEnding();
+  }
+
+  async function homeEnding() {
+    enterArena('home', 46, 64, 'side', []);
+    st.camX = st.camY = 0;
+    st.heroRot = 0;
     st.npcs = [
-      { def: 'roma', x: 160, y: 66, dir: 'side', face: -1 },
-      { def: 'anton', x: 92, y: 92, dir: 'up', face: 1 },
-      { def: 'andrey', x: 132, y: 92, dir: 'up', face: 1 },
+      { def: 'roma', x: 178, y: 64, dir: 'side', face: -1 },
+      { def: 'anton', x: 96, y: 84, dir: 'up', face: 1 },
+      { def: 'andrey', x: 128, y: 84, dir: 'up', face: 1 },
     ];
     st.lock = true;
     await tween(st, 'fade', 0, 1);
-    await say('normal', 'а с ним чо делать будем', 'Андрей');
-    await say('smirk', 'На полку поставим', 'Рома');
-    await say('shock', 'АХАХАХАХАХА', 'Антон');
+    await say('shock', 'бля чо это было', 'Андрей');
+    await say('shock', 'ЭТО БЫЛ КЛОД?!', 'Антон');
+    await say('smirk', 'Не спрашивай', 'Рома');
     await say('smirk', 'Ладно. Лучший др');
     st.done.yam = 1;
     saveDone();
@@ -1060,7 +1162,7 @@
   const DIRS = { down: Math.PI / 2, up: -Math.PI / 2 };
   const baseAngle = () => pl.dir === 'side' ? (pl.face > 0 ? 0 : Math.PI) : DIRS[pl.dir];
 
-  const VOICE = { 'Артемий': 300, 'Рома': 410, 'Антон': 360, 'Андрей': 380, 'Пацан': 250, 'Жирный': 190, 'Спасатель': 280, 'Развитие': 150 };
+  const VOICE = { 'Артемий': 300, 'Рома': 410, 'Антон': 360, 'Андрей': 380, 'Пацан': 250, 'Жирный': 190, 'Спасатель': 280, 'Развитие': 150, 'Клод': 520 };
   function attack() {
     if (st.swing > 0) return;
     // автонаводка: в бою разворачиваемся к ближайшему врагу
@@ -1093,7 +1195,6 @@
     }
     // телефон вибрирует, ноутбук стучит клавишами
     if (st.mode === 'wake' && st.wake.buzz && Math.floor(st.t / 0.6) !== Math.floor((st.t - dt) / 0.6)) Sfx.play.buzz();
-    if (st.laptop && st.code > 0.5 && Math.floor(st.t / 0.07) !== Math.floor((st.t - dt) / 0.07)) Sfx.play.type();
     if (st.icon && (st.icon.t -= dt) <= 0) st.icon = null;
     st.shake = Math.max(0, st.shake - dt);
     st.hurtFlash = Math.max(0, st.hurtFlash - dt);
@@ -1416,16 +1517,7 @@
     for (const [, fn] of items) fn();
     for (const p of st.parts) R(p.x, p.y, 2, 2, p.col);
     fight.drawOver();
-    if (st.laptop) {
-      const { x, y } = st.laptop;
-      R(x - 5, y - 13, 11, 8, OUTLINE); R(x - 4, y - 12, 9, 6, '#16301a'); R(x - 3, y - 11, 5, 1, '#4ade80'); R(x - 3, y - 9, 3, 1, '#4ade80');
-      R(x - 6, y - 5, 13, 2, '#9aa0a8');
-    }
-    if (st.jar) {
-      const { x, y } = st.jar;
-      R(x - 9, y - 22, 18, 23, OUTLINE); b.globalAlpha = 0.45; R(x - 8, y - 21, 16, 21, '#cfe8f0'); b.globalAlpha = 1;
-      R(x - 9, y - 25, 18, 4, '#c0392b'); R(x - 6, y - 19, 2, 15, '#ffffff');
-    }
+    drawCut();
     if (P.dark) darkness();
     drawMarker();
     drawIcon();
@@ -1440,6 +1532,178 @@
     if (!st.lock) fight.hud();
     drawButtons();
     drawJoy();
+  }
+
+  // первое лицо: Артемий держит записку; удар — картинка заваливается, веки закрываются
+  const fpPaper = () => [W / 2, H * 0.46 + (1 - st.fp.k) * H * 0.8 + st.fp.fall * H * 0.3];
+  function drawFP() {
+    const f = st.fp;
+    if (st.place) drawArena();
+    small.width = Math.ceil(W / 5);
+    small.height = Math.ceil(H / 5);
+    const s = small.getContext('2d');
+    s.imageSmoothingEnabled = true;
+    s.drawImage(buf, 0, 0, small.width, small.height);
+    b.imageSmoothingEnabled = true;
+    b.drawImage(small, 0, 0, W, H);
+    b.imageSmoothingEnabled = false;
+    b.fillStyle = 'rgba(0,0,0,.4)';
+    b.fillRect(0, 0, W, H);
+    const [cx, cy] = fpPaper();
+    b.save();
+    b.translate(Math.round(cx), Math.round(cy));
+    b.rotate(-0.04 + f.fall * 0.7);
+    b.fillStyle = 'rgba(0,0,0,.35)';
+    b.fillRect(-58, -40, 120, 82);
+    b.fillStyle = '#f4ecd8';
+    b.fillRect(-62, -44, 120, 82);
+    b.fillStyle = '#e2d6b8';
+    b.fillRect(-62, -44, 120, 3);
+    b.fillRect(-2, -44, 1, 82);
+    // руки: рукава смокинга, ладони снизу, большие пальцы поверх бумаги
+    for (const side of [-1, 1]) {
+      const sx = side < 0 ? -86 : 52;
+      b.fillStyle = '#949eae'; b.fillRect(sx, 30, 34, 70);
+      b.fillStyle = '#6c7689'; b.fillRect(side < 0 ? sx : sx + 30, 30, 4, 70);
+      b.fillStyle = '#f6f4ef'; b.fillRect(sx, 27, 34, 4);
+      b.fillStyle = '#f0c4a2'; b.fillRect(side < 0 ? -80 : 46, 4, 28, 26);
+      b.fillStyle = '#d6a083'; b.fillRect(side < 0 ? -58 : 46, 6, 5, 22);
+      b.fillStyle = '#f0c4a2'; b.fillRect(side < 0 ? -62 : 48, -3, 14, 9);
+      b.fillStyle = '#e8b090'; b.fillRect(side < 0 ? -52 : 50, -2, 4, 3);
+    }
+    b.restore();
+    if (f.fall > 0) {
+      const lid = Math.ceil(f.fall * (H / 2 + 4));
+      b.fillStyle = '#000';
+      b.fillRect(0, 0, W, lid);
+      b.fillRect(0, H - lid, W, lid);
+    }
+  }
+
+  // катсцены финала поверх сцены: щупальца тьмы, портал, Клод, шар, взрыв
+  function drawCut() {
+    const bs = fight.boss();
+    if (st.tendrils && bs) for (const a of st.tendrils) {
+      const x0 = bs.x, y0 = bs.y - 24, x1 = a.x, y1 = a.y - 10 - (a.z || 0);
+      for (let i = 0; i <= 32; i++) {
+        const k = i / 32, w = Math.sin(k * 12 + st.t * 10) * 3 * Math.sin(k * Math.PI);
+        const x = Math.round(x0 + (x1 - x0) * k), y = Math.round(y0 + (y1 - y0) * k + w);
+        R(x, y, 2, 2, '#12041c');
+        R(x, y, 1, 1, '#7e22ce');
+      }
+    }
+    if (st.portal) drawPortal(st.portal);
+    if (st.claude) drawClaudeBig(st.claude);
+    if (st.orb) drawOrb(st.orb);
+    if (st.boom) drawBoom(st.boom);
+  }
+
+  function drawPortal(p) {
+    const h = 40, X = ox + p.x, Y = oy + p.y;
+    const half = y => Math.round(p.open * 16 * Math.sqrt(Math.max(0, 1 - (2 * y / h) ** 2)));
+    for (let y = -h / 2; y < h / 2; y++) {
+      const dx = Math.round(Math.sin(y * 0.9) * 1.5), w = half(y);
+      b.fillStyle = '#d97757';
+      b.fillRect(X + dx - w - 2, Y + y, w * 2 + 4, 1);
+      b.fillStyle = '#05030a';
+      b.fillRect(X + dx - w - 1, Y + y, w * 2 + 2, 1);
+    }
+    if (p.open > 0.2) for (let i = 0; i < 24; i++) {
+      const a = i * 0.5 + st.t * 3, r = (i % 6) / 6 * 14 * p.open;
+      b.fillStyle = i % 2 ? '#d97757' : '#f0a080';
+      b.fillRect(Math.round(X + Math.cos(a) * r), Math.round(Y + Math.sin(a) * r * 1.3), 1, 1);
+    }
+    // пальцы вылезают из щели и тянут её края в стороны
+    const len = Math.round(3 + p.fingers * 7);
+    for (const s of [-1, 1]) for (let f = 0; f < 4; f++) {
+      const fy = Y - 9 + f * 6, edge = X + s * (half(fy - Y) + 1), x0 = s < 0 ? edge - len : edge;
+      b.fillStyle = OUTLINE; b.fillRect(x0 - 1, fy - 1, len + 2, 5);
+      b.fillStyle = '#d97757'; b.fillRect(x0, fy, len, 3);
+      b.fillStyle = '#f0a080'; b.fillRect(s < 0 ? x0 : x0 + len - 2, fy, 2, 2);
+    }
+  }
+
+  // Клод-Махорага: рельефный торс, вместо головы — иконка-звёздочка; поза — рука вперёд, как на референсе
+  function drawClaudeBig(c) {
+    const x = Math.round(c.x), y = Math.round(c.y), skin = '#e8a07a', shade = '#c8785a', dark = '#a85e44';
+    b.globalAlpha = 0.3 * c.k;
+    R(x - 11, y - 1, 22, 3, '#000');
+    b.globalAlpha = c.k;
+    R(x - 8, y - 16, 7, 16, OUTLINE); R(x + 1, y - 16, 7, 16, OUTLINE);
+    R(x - 7, y - 15, 5, 13, '#1e1e24'); R(x + 2, y - 15, 5, 13, '#1e1e24');
+    R(x - 8, y - 2, 7, 2, '#0e0e12'); R(x + 1, y - 2, 7, 2, '#0e0e12');
+    R(x - 9, y - 18, 18, 3, '#3a2416');
+    for (let j = 0; j < 24; j++) {
+      const yy = y - 18 - j, half = Math.round(7 + j * 0.5);
+      R(x - half - 1, yy, half * 2 + 2, 1, OUTLINE);
+      R(x - half, yy, half * 2, 1, skin);
+      R(x + half - 3, yy, 3, 1, shade);
+    }
+    R(x - 12, y - 33, 10, 1, dark); R(x + 2, y - 33, 10, 1, dark);
+    R(x, y - 40, 1, 22, shade);
+    for (const yy of [y - 29, y - 25, y - 21]) { R(x - 6, yy, 5, 1, shade); R(x + 2, yy, 5, 1, shade); }
+    for (const s of [-1, 1]) { disc(ox + x + s * 18, oy + y - 38, 6, OUTLINE); disc(ox + x + s * 18, oy + y - 38, 5, skin); }
+    disc(ox + x + 19, oy + y - 37, 3, shade);
+    // правая рука согнута, кулак у плеча; на щелчке — искра
+    disc(ox + x + 22, oy + y - 30, 5, OUTLINE); disc(ox + x + 22, oy + y - 30, 4, skin);
+    disc(ox + x + 24, oy + y - 41, 4, OUTLINE); disc(ox + x + 24, oy + y - 41, 3, skin);
+    if (c.snap) for (let i = 0; i < 6; i++) { const a = i * 1.05 + st.t * 8; R(Math.round(x + 27 + Math.cos(a) * 5), Math.round(y - 46 + Math.sin(a) * 5), 1, 1, '#ffffff'); }
+    // левая рука: висит, в позе — вытянута к боссу, два пальца вперёд
+    const ax = Math.round(x - 20 - c.aim * 22), ay = Math.round(y - 21 - c.aim * 16);
+    for (const [w, col] of [[7, OUTLINE], [5, skin]]) for (let i = 0; i <= 12; i++) {
+      const px = Math.round(x - 18 + (ax - x + 18) * i / 12), py = Math.round(y - 37 + (ay - y + 37) * i / 12);
+      R(px - (w >> 1), py - (w >> 1), w, w, col);
+    }
+    disc(ox + Math.round(x - 24 - c.aim * 6), oy + Math.round(y - 37 + (1 - c.aim) * 5), 4, skin);
+    if (c.aim > 0.5) {
+      R(ax - 10, ay - 4, 9, 7, OUTLINE);
+      R(ax - 9, ay - 3, 8, 2, skin); R(ax - 9, ay + 1, 8, 1, skin);
+      R(ax - 3, ay - 3, 4, 5, skin);
+    }
+    R(x - 3, y - 45, 6, 3, skin);
+    const hx = ox + x, hy = oy + y - 52;
+    for (const [w, col] of [[3, OUTLINE], [2, '#d97757']]) for (let i = 0; i < 12; i++) {
+      const a = i * Math.PI / 6 + 0.2, len = i % 2 ? 9 : 12;
+      for (let r = 3; r <= len; r++) { b.fillStyle = r > len - 2 && w === 2 ? '#f0a080' : col; b.fillRect(Math.round(hx + Math.cos(a) * r) - (w >> 1), Math.round(hy + Math.sin(a) * r) - (w >> 1), w, w); }
+    }
+    disc(hx, hy, 5, '#d97757');
+    b.globalAlpha = 1;
+  }
+
+  // зелёный шар с нулём внутри, блики и искрящееся кольцо
+  function drawOrb(o) {
+    if (o.r < 0.5) return;
+    const X = ox + o.x, Y = oy + o.y, r = o.r;
+    b.globalAlpha = 0.25; disc(X, Y, Math.round(r * 2.8), '#4ade80');
+    b.globalAlpha = 0.5; disc(X, Y, Math.round(r * 1.7), '#86efac');
+    b.globalAlpha = 0.8;
+    b.fillStyle = '#dcfce7';
+    b.fillRect(Math.round(X - r * 4), Y, Math.round(r * 8), 1);
+    b.fillRect(X, Math.round(Y - r * 2.5), 1, Math.round(r * 5));
+    for (let i = -r * 3; i <= r * 3; i++) { b.fillRect(Math.round(X + i), Math.round(Y + i * 0.6), 1, 1); b.fillRect(Math.round(X + i), Math.round(Y - i * 0.6), 1, 1); }
+    b.globalAlpha = 1;
+    disc(X, Y, Math.round(r), '#22c55e');
+    disc(X - Math.round(r * 0.25), Y - Math.round(r * 0.25), Math.max(1, Math.round(r * 0.6)), '#bbf7d0');
+    b.fillStyle = '#14532d';
+    for (let a = 0; a < 6.28; a += 0.3) b.fillRect(Math.round(X + Math.cos(a) * r * 0.42), Math.round(Y + Math.sin(a) * r * 0.62), 1, 1);
+    b.fillStyle = '#ffffff';
+    for (let i = 0; i < 26; i++) {
+      const a = i / 26 * 6.28 + st.t * 2;
+      if (i % 3) b.fillRect(Math.round(X + Math.cos(a) * r * 2.4), Math.round(Y + Math.sin(a) * r * 2.4), 1, 1);
+    }
+  }
+
+  function drawBoom(o) {
+    const X = ox + o.x, Y = oy + o.y, t = o.t;
+    b.globalAlpha = Math.max(0, 1 - t * 1.4);
+    disc(X, Y, Math.round(10 + t * 50), '#ffffff');
+    b.globalAlpha = Math.max(0, 1 - t);
+    for (const [k, col] of [[1, '#4ade80'], [0.7, '#bbf7d0'], [0.45, '#2a0a3a']]) {
+      const rr = t * 100 * k;
+      b.fillStyle = col;
+      for (let a = 0; a < 6.28; a += 1.5 / Math.max(8, rr)) b.fillRect(Math.round(X + Math.cos(a) * rr), Math.round(Y + Math.sin(a) * rr * 0.7), 2, 2);
+    }
+    b.globalAlpha = 1;
   }
 
   function drawBike() {
@@ -1595,13 +1859,10 @@
     }
     if (st.mode === 'phone') drawPhoneUI();
     if (st.mode === 'map') drawMapUI();
-    if (st.mode === 'note' && st.noteA > 0) {
-      g.globalAlpha = st.noteA;
-      rr(W / 2 - 70, H / 2 - 52, 140, 62, 3, '#f4ecd8');
-      rect(W / 2 - 70, H / 2 - 52, 140, 4, '#e2d6b8');
-      text('я жду вас уже', W / 2, H / 2 - 28, 10, '#3a2a22', 'center', 700);
-      text('в Ям-Ижоре', W / 2, H / 2 - 12, 12, '#a8141e', 'center', 900);
-      g.globalAlpha = 1;
+    if (st.mode === 'fpnote' && !st.fp.fall) {
+      const [cx, cy] = fpPaper(), L = ['Думали, это всё?', 'Обернись.'], n = Math.floor(st.fp.text * (L[0].length + L[1].length));
+      text(L[0].slice(0, n), cx - 2, cy - 16, 9, '#3a2a22', 'center', 700);
+      text(L[1].slice(0, Math.max(0, n - L[0].length)), cx - 2, cy + 4, 11, '#a8141e', 'center', 900);
     }
     if (st.mode === 'card') {
       g.globalAlpha = st.cardA;
@@ -1618,22 +1879,21 @@
         text(q.text, ox + q.x, oy + q.y, q.text.length > 2 ? 6.5 : 12, q.text === '!' ? '#ffffff' : '#ffd23f', 'center', 900);
         g.globalAlpha = 1;
       }
+      // умные слова босса: летящие с уроном — на тёмной плашке, касты — просто текстом
+      for (const sh of fight.words()) {
+        g.font = `900 ${4.5 * scale}px ${FONT}`;
+        const tw = g.measureText(sh.text).width / scale + 4;
+        if (sh.fx) { g.globalAlpha = Math.min(1, sh.life); text(sh.text, ox + sh.x, oy + sh.y + 1.5, 4.5, '#d8b4fe', 'center', 900); g.globalAlpha = 1; continue; }
+        rr(ox + sh.x - tw / 2, oy + sh.y - 4, tw, 7, 2, 'rgba(40,10,60,.9)');
+        text(sh.text, ox + sh.x, oy + sh.y + 1.5, 4.5, '#f5d0fe', 'center', 900);
+      }
       const bs = fight.boss();
-      if (bs && !fight.S.phase3 && bs.state !== 'enter' && !st.lock) {
-        const k = Math.max(0, (bs.hp - bs.max * 0.25) / (bs.max * 0.75)), bw = Math.min(160, W - 140);
+      if (bs && bs.state !== 'enter' && !st.lock) {
+        const k = Math.max(0, bs.hp / bs.max), bw = Math.min(160, W - 140), dark = bs.dark > 0.5;
         rr(W / 2 - bw / 2 - 2, 5, bw + 4, 13, 3, 'rgba(20,18,32,.85)');
         rect(W / 2 - bw / 2, 13, bw, 3, '#4a1a1e');
-        rect(W / 2 - bw / 2, 13, bw * k, 3, '#e74c3c');
-        text('РАЗВИТИЕ', W / 2, 11.5, 5.5, '#ffd23f', 'center', 900);
-      }
-      if (st.code > 0 && st.laptop) {
-        g.globalAlpha = st.code;
-        const CH = '01{}<>=;/()[]#';
-        for (let i = 0; i < 46; i++) {
-          const x = st.laptop.x - 70 + (i * 53) % 140, y = st.laptop.y - 80 + ((i * 37 + st.t * 70) % 110);
-          text(CH[(i * 7 + Math.floor(st.t * 8)) % CH.length], ox + x, oy + y, 6, i % 3 ? '#4ade80' : '#bbf7d0', 'center', 800);
-        }
-        g.globalAlpha = 1;
+        rect(W / 2 - bw / 2, 13, bw * k, 3, dark ? '#a855f7' : '#e74c3c');
+        text(dark ? 'ТЁМНОЕ РАЗВИТИЕ' : 'РАЗВИТИЕ', W / 2, 11.5, 5.5, dark ? '#e9d5ff' : '#ffd23f', 'center', 900);
       }
       if (st.credits > 0) {
         g.fillStyle = `rgba(10,8,16,${0.7 * st.credits})`;
@@ -1685,8 +1945,13 @@
   }
 
   function draw() {
+    // камера катсцен сдвигает всю сцену
+    const cx = Math.round(st.camX), cy = Math.round(st.camY);
+    ox -= cx;
+    oy -= cy;
     b.fillStyle = '#000';
     b.fillRect(0, 0, W, H);
+    if (st.mode === 'fpnote') drawFP();
     if (st.mode === 'wake') drawWake();
     if (st.mode === 'phone') {
       drawWake();
@@ -1702,6 +1967,8 @@
     drawDialogBox();
     g.drawImage(buf, 0, 0, W * scale, H * scale);
     drawOverlayText();
+    ox += cx;
+    oy += cy;
   }
 
   function loop(now) {

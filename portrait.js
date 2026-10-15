@@ -4,7 +4,7 @@ const Portrait = (() => {
     1: '#4e3d2c', 2: '#6e5840', 3: '#937a5a', 4: '#b59c76', 5: '#d6c29c',
     a: '#fbe0c8', S: '#f2cdb0', s: '#dcab8e', t: '#bf8a72', r: '#eba595',
     w: '#ffffff', e: '#9cb6cc', E: '#3e5670', l: '#5a3f34', b: '#3a2a1c',
-    m: '#a65a52', M: '#6e3434', T: '#fbf7f0',
+    m: '#a65a52', M: '#6e3434', T: '#fbf7f0', D: '#b3261e', R: '#7a1410',
     6: '#8a6a3a', 7: '#b08d55', 8: '#d2b27a', 9: '#ecd6a2', Z: '#ead7b8', z: '#c9a585', Y: '#b89878',
     F: '#3d3d47', f: '#2b2b33', G: '#1c1c22', N: '#a9a9ad', n: '#86868c',
     U: '#34343c', u: '#26262c', V: '#16161a', C: '#1e1e24', K: '#33333c', O: '#0e0e12',
@@ -48,6 +48,7 @@ const Portrait = (() => {
     think: { eyes: ['side', 'side'], same: true, brows: ['normal', 'high'], mouth: 'pout', talk: 'talk' },
     roll: { eyes: ['up', 'up'], brows: ['high', 'high'], mouth: 'frown', talk: 'talk' },
     facepalm: { eyes: ['closed', 'closed'], brows: ['low', 'low'], mouth: 'frown', talk: 'talk', hand: true },
+    hurt: { eyes: ['sleepy', 'sleepy'], brows: ['low', 'low'], mouth: 'flat', talk: 'talk', blood: true },
   };
 
   const rnd = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -63,7 +64,11 @@ const Portrait = (() => {
       pal: { E: '#5f7f96', e: '#a8c0d0', b: '#9a875e', U: '#6a3ed8', u: '#5b2fc9', V: '#3f1f96' } },
     andrey: { rx: 11.5, ry: 12.5, outfit: 'shirt', hair: 'back', hairMap: { 6: '3', 7: '4', 8: '5', 9: '5' },
       pal: { E: '#4a6a8a', e: '#9ab4cc', b: '#3a2a1c', U: '#2a2a33', u: '#1c1c22', V: '#101014' } },
-    boss: { rx: 17, ry: 14.5, outfit: 'track', hair: 'buzz', veins: true, pal: { E: '#2a1a14', e: '#ffffff', b: '#1c140e', l: '#2e2218', S: '#f2c4a4', s: '#dca487', t: '#c08870', a: '#fbd8bc' } },
+    boss: { rx: 18.5, ry: 17, outfit: 'tux', hair: 'stubble', veins: true,
+      pal: { E: '#2a1a14', e: '#ffffff', b: '#3a2a1c', l: '#2e2218', S: '#f2c4a4', s: '#dca487', t: '#c08870', a: '#fbd8bc', J: '#3c414f', j: '#4a5060', q: '#262a33', Q: '#1d2028', W: '#f4f4f4', x: '#d0d0d6', B: '#141418' } },
+    lg: { rx: 11.5, ry: 12.5, outfit: 'track', hair: 'cap',
+      pal: { C: '#d63031', K: '#ff5a5a', O: '#7a1414', U: '#ff5b4f', u: '#e8372c', V: '#a8201a', T: '#ffd23f', E: '#4a3a2a', e: '#8a7460', b: '#2a1e14' } },
+    claude: { custom: true, pal: { S: '#e8a07a', s: '#c8785a', t: '#a85e44', O: '#d97757', K: '#f0a080', G: '#8a3f22' } },
   };
 
   const SLEEVE = { tux: ['J', 'q'], jacket: ['f', 'G'], track: ['u', 'V'], tee: ['u', 'V'], shirt: ['u', 'V'] };
@@ -178,6 +183,12 @@ const Portrait = (() => {
         if (y > (side > 12 ? 20 : side > 9 ? 14 : 11)) continue;
         set(x, y, (x * 7 + y * 3) % 5 === 0 || x > 28 ? 'l' : 'b');
       }
+    } else if (kind === 'stubble') {
+      // редкий ёжик по макушке огромной головы
+      for (let y = 3; y < 14; y++) for (let x = 0; x < PW; x++) {
+        const dx = (x - CX) / 17, dy = (y - 21) / 16.5;
+        if (dx * dx + dy * dy <= 1 && (x * 3 + y * 7) % 5 === 0) set(x, y, y < 8 ? 'b' : 'l');
+      }
     } else if (kind === 'cap') {
       // кепка: купол + козырёк над бровями
       for (let y = 3; y < 15; y++) for (let x = 0; x < PW; x++) {
@@ -221,6 +232,30 @@ const Portrait = (() => {
     return { G, set };
   }
 
+  // Клод: рельефные плечи, вместо головы — иконка-звёздочка
+  function claudeBase() {
+    const G = Array.from({ length: PH }, () => Array(PW).fill(null));
+    const set = (x, y, c) => { if (x >= 0 && x < PW && y >= 0 && y < PH) G[y][x] = c; };
+    for (let y = 26; y < 33; y++) for (let x = 16; x < 24; x++) set(x, y, x > 21 ? 's' : 'S');
+    for (let y = 31; y < PH; y++) {
+      const half = Math.min(20, 7 + (y - 31) * 2.6);
+      for (let x = Math.ceil(CX - half); x <= CX + half; x++) set(x, y, x > CX + half - 4 ? 's' : 'S');
+    }
+    for (let x = 8; x < 32; x++) set(x, 40 + Math.round(Math.abs(x - CX) * 0.12), 't');
+    for (let y = 40; y < PH; y++) set(Math.round(CX), y, 't');
+    for (let y = 33; y < 38; y++) { set(5 + (y - 33), y, 't'); set(34 - (y - 33), y, 't'); }
+    for (let i = 0; i < 12; i++) {
+      const a = i * Math.PI / 6 + 0.2, len = i % 2 ? 11 : 14;
+      for (let r = 3; r <= len; r++) {
+        const x = Math.round(CX + Math.cos(a) * r), y = Math.round(15 + Math.sin(a) * r);
+        set(x, y, r > len - 3 ? 'K' : 'O');
+        if (r < len - 4) set(x + 1, y, 'O');
+      }
+    }
+    for (let y = 10; y < 21; y++) for (let x = 14; x < 26; x++) if (Math.hypot(x - CX, y - 15) < 5) set(x, y, 'O');
+    return { G, set };
+  }
+
   function overlay(set, rows, x0, y0) {
     rows.forEach((row, y) => [...row].forEach((c, x) => { if (c !== '.') set(x0 + x, y0 + y, c); }));
   }
@@ -232,16 +267,19 @@ const Portrait = (() => {
     if (cache.has(key)) return cache.get(key);
     const e = EMO[emo] || EMO.normal;
     const pal = { ...PAL, ...(WHO[who].pal || {}) };
-    const { G, set } = base(who);
-    const eyeR = e.same ? EYES[e.eyes[1]] : mirror(EYES[e.eyes[1]]);
-    const up = e.browUp || 0;
-    overlay(set, EYES[e.eyes[0]], 11, 19 - (e.eyes[0] === 'shock' ? 1 : 0));
-    overlay(set, eyeR, 22, 19 - (e.eyes[1] === 'shock' ? 1 : 0));
-    overlay(set, BROWS[e.brows[0]], 11, 16 - up);
-    overlay(set, mirror(BROWS[e.brows[1]]), 22, 16 - up - (e.brows[1] === 'high' && e.brows[0] !== 'high' ? 1 : 0));
-    overlay(set, MOUTHS[talking ? e.talk : e.mouth], 15, 28);
+    const { G, set } = WHO[who].custom ? claudeBase() : base(who);
+    if (!WHO[who].custom) {
+      const eyeR = e.same ? EYES[e.eyes[1]] : mirror(EYES[e.eyes[1]]);
+      const up = e.browUp || 0;
+      overlay(set, EYES[e.eyes[0]], 11, 19 - (e.eyes[0] === 'shock' ? 1 : 0));
+      overlay(set, eyeR, 22, 19 - (e.eyes[1] === 'shock' ? 1 : 0));
+      overlay(set, BROWS[e.brows[0]], 11, 16 - up);
+      overlay(set, mirror(BROWS[e.brows[1]]), 22, 16 - up - (e.brows[1] === 'high' && e.brows[0] !== 'high' ? 1 : 0));
+    }
+    if (!WHO[who].custom) overlay(set, MOUTHS[talking ? e.talk : e.mouth], 15, 28);
+    if (e.blood) for (const [x, y, c] of [[13, 6, 'R'], [13, 7, 'D'], [14, 8, 'D'], [13, 9, 'D'], [13, 10, 'D'], [12, 11, 'D'], [12, 12, 'R'], [12, 14, 'D'], [11, 16, 'D'], [27, 9, 'D'], [27, 10, 'R'], [28, 11, 'D'], [9, 23, 'D'], [9, 24, 'D'], [10, 25, 'R']]) set(x, y, c);
     // facepalm: ладонь на глазах, четыре пальца веером вверх, запястье уходит вниз вправо в рукав
-    if (e.hand) {
+    if (e.hand && !WHO[who].custom) {
       for (let f = 0; f < 4; f++) {
         const x0 = 10 + f * 4, top = 13 + Math.abs(f - 1.5) * 1.5;
         for (let y = Math.round(top); y < 21; y++) for (let x = x0; x < x0 + 3; x++) set(x, y, x === x0 + 2 ? 's' : y === Math.round(top) ? 'a' : 'S');

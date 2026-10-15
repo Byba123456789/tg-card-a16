@@ -205,8 +205,9 @@ const Actors = (() => {
     chick: ANIM('#f2c230', '#ffe066', '#b88a10', '#f08a24', '#ffffff', 'chick', { W: '#fff6d0', m: '#c0392b' }),
     fox: ANIM('#c0392b', '#e05a4a', '#7a1f16', '#e8c8a8', '#ffd23f', 'fox'),
     bossbody: {
-      head: EMPTY_HEAD, body: bodies(12, 8, { zip: true, stripe: true }), stripes: true,
-      pal: { ...TRACK('#2b2f3a', '#1a1d24', '#3c414f'), x: '#c8ccd6', B: '#f0f0f0' },
+      head: EMPTY_HEAD, body: ART_BODY,
+      pal: { J: '#3c414f', j: '#4a5060', q: '#262a33', A: '#2e333d', a: '#3c414f', Q: '#1d2028', W: '#f4f4f4', x: '#d0d0d6', B: '#141418',
+        P: '#262a33', p: '#3a3f4b', L: '#1a1d24' },
     },
   });
   for (const [id, d] of Object.entries(DEFS)) {
