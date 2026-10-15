@@ -187,6 +187,8 @@ const Fight = C => {
 
   function move(o, dx, dy, free) {
     const nx = o.x + dx, ny = o.y + dy;
+    // застрял внутри предмета — выпускаем
+    if (!free && C.blocked(o.x, o.y)) free = true;
     if (free || !C.blocked(nx, o.y)) o.x = nx;
     if (free || !C.blocked(o.x, ny)) o.y = ny;
   }

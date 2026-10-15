@@ -619,14 +619,14 @@
 
     // фудкорт
     await goTo('food', [-10, 70], [26, 70], 'side');
-    fight.start([[R_('gop', [FW + 10, 70], [176, 58]), R_('gop3', [FW + 10, 72], [186, 86]), STK('gop2', [FW + 10, 70], [160, 72])],
+    fight.start([[R_('gop', [FW + 10, 70], [176, 58]), R_('gop3', [FW + 10, 72], [200, 70]), STK('gop2', [FW + 10, 70], [160, 72])],
       [STK('gop', [FW + 10, 64], [170, 64]), R_('gop2', [FW + 10, 76], [180, 80]), R_('gop3', [-10, 64], [20, 64]), STK('gop3', [-10, 74], [24, 100])],
       [FAT([FW + 10, 70], [170, 70]), R_('gop', [-10, 70], [24, 60]), R_('gop2', [FW + 10, 70], [190, 100])]], { calm: true });
     await until(() => fight.arrived());
     await say('angry', 'Да сколько вас');
     fight.engage();
     await brawl([
-      [R_('gop', [FW + 10, 70], [176, 58]), R_('gop3', [FW + 10, 72], [186, 86]), STK('gop2', [FW + 10, 70], [160, 72])],
+      [R_('gop', [FW + 10, 70], [176, 58]), R_('gop3', [FW + 10, 72], [200, 70]), STK('gop2', [FW + 10, 70], [160, 72])],
       [STK('gop', [FW + 10, 64], [170, 64]), R_('gop2', [FW + 10, 76], [180, 80]), R_('gop3', [-10, 64], [20, 64]), STK('gop3', [-10, 74], [24, 100])],
       [FAT([FW + 10, 70], [170, 70]), R_('gop', [-10, 70], [24, 60]), R_('gop2', [FW + 10, 70], [190, 100])],
     ], [26, 70], true);
@@ -811,6 +811,7 @@
     pl.walkT += dt;
     if (Math.abs(vx) > Math.abs(vy) * 1.1) { pl.dir = 'side'; pl.face = vx > 0 ? 1 : -1; } else pl.dir = vy < 0 ? 'up' : 'down';
     const nx = pl.x + vx * SPEED * dt, ny = pl.y + vy * SPEED * dt;
+    if (blocked(pl.x, pl.y)) free = true;
     if (free || !blocked(nx, pl.y)) pl.x = nx;
     if (free || !blocked(pl.x, ny)) pl.y = ny;
   }
@@ -1161,12 +1162,15 @@
     if (p.kind === 'call') {
       rect(x0, y0, w, h, '#1b2836');
       rect(x0, y0, w, h * 0.55, '#22364a');
-      circle(x0 + w / 2, y0 + 46, 17, AVA[p.title]);
-      text(p.title[0], x0 + w / 2, y0 + 52, 15, '#fff', 'center');
-      text(p.title, x0 + w / 2, y0 + 80, 9, '#fff', 'center');
-      text(p.sub, x0 + w / 2, y0 + 91, 6, p.fail ? '#ff6b6b' : '#c8d6e5', 'center', 600);
-      circle(x0 + w / 2, y0 + h - 22, 9, '#e5484d');
-      text('✕', x0 + w / 2, y0 + h - 18.5, 9, '#fff', 'center');
+      // раскладка от высоты: на низком экране кнопка не наезжает на текст
+      const r = Math.min(17, h * 0.11), avY = y0 + Math.max(r + 6, h * 0.27), nameY = avY + r + 15, subY = nameY + 11;
+      const btnY = Math.min(y0 + h - 11, Math.max(subY + 20, y0 + h - 22));
+      circle(x0 + w / 2, avY, r, AVA[p.title]);
+      text(p.title[0], x0 + w / 2, avY + r * 0.35, r * 0.88, '#fff', 'center');
+      text(p.title, x0 + w / 2, nameY, 9, '#fff', 'center');
+      text(p.sub, x0 + w / 2, subY, 6, p.fail ? '#ff6b6b' : '#c8d6e5', 'center', 600);
+      circle(x0 + w / 2, btnY, 9, '#e5484d');
+      text('✕', x0 + w / 2, btnY + 3.5, 9, '#fff', 'center');
     } else {
       rect(x0, y0, w, h, '#0e1621');
       rect(x0, y0, w, 19, '#17212b');
@@ -1327,10 +1331,15 @@
       tg.ready();
       tg.expand();
       if (tg.isVersionAtLeast('7.7')) tg.disableVerticalSwipes();
+      if (tg.isVersionAtLeast('6.1')) {
+        tg.BackButton.show();
+        tg.BackButton.onClick(() => { location.href = 'index.html'; });
+      }
     }
     resize();
     addEventListener('resize', resize);
     cv.addEventListener('pointerdown', onDown);
+    document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
     cv.addEventListener('pointermove', e => { if (joy && e.pointerId === joy.id) [joy.x, joy.y] = toBuf(e); });
     const end = e => { if (joy && e.pointerId === joy.id) joy = null; };
     cv.addEventListener('pointerup', end);
