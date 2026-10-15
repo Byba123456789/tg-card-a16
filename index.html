@@ -317,6 +317,8 @@ main { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding
 <script>
 const TARGETS = ['zitruss116', 'omanns'];
 const TESTERS = ['omanns'];
+// открыто всё сразу: поздравления, игра и сюжетка, без капчи
+const FULL = ['uglygymduck'];
 const FIRST_VISITS = 2;
 
 const TOGETHER = [['all1', 'все вместе'], ['all2', 'и ещё раз']];
@@ -554,7 +556,7 @@ document.getElementById('captchaModal').addEventListener('click', e => { if (e.t
 function revealTabs() {
   document.getElementById('tabs').classList.remove('hidden');
   document.querySelector('.next-wrap').classList.add('hidden');
-  if (TESTERS.includes(username)) document.getElementById('tabStory').classList.remove('hidden');
+  if (TESTERS.includes(username) || FULL.includes(username)) document.getElementById('tabStory').classList.remove('hidden');
 }
 
 function goNext() {
@@ -626,8 +628,11 @@ async function init() {
   watchReveal();
   watchSwing();
   captchaPassed = (await store.get('captcha')) === '1';
+  if (FULL.includes(username)) {
+    captchaPassed = true;
+    revealTabs();
   // остальным — только игра, пока не введут код
-  if (!isTarget && (await store.get('code')) !== '1') {
+  } else if (!isTarget && (await store.get('code')) !== '1') {
     document.getElementById('gBack').classList.add('hidden');
     document.getElementById('gCode').classList.remove('hidden');
     show('stage2');
