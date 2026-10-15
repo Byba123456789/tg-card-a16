@@ -531,6 +531,7 @@ async function checkCaptcha() {
     haptic('success');
     captchaPassed = true;
     await store.set('captcha', 1);
+    if (isTarget) revealTabs();
     document.getElementById('captchaModal').classList.add('hidden');
     input.blur();
     show('stage2');
@@ -548,6 +549,13 @@ async function checkCaptcha() {
 document.getElementById('captchaGo').addEventListener('click', checkCaptcha);
 document.getElementById('captchaInput').addEventListener('keydown', e => { if (e.key === 'Enter') checkCaptcha(); });
 document.getElementById('captchaModal').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden'); });
+
+// меню снизу — только после «Пройти дальше» (капча пройдена); дальше остаётся во все заходы
+function revealTabs() {
+  document.getElementById('tabs').classList.remove('hidden');
+  document.querySelector('.next-wrap').classList.add('hidden');
+  if (TESTERS.includes(username)) document.getElementById('tabStory').classList.remove('hidden');
+}
 
 function goNext() {
   if (captchaPassed) show('stage2');
@@ -626,17 +634,8 @@ async function init() {
   } else if (isTarget) {
     const visits = (parseInt(await store.get('visits'), 10) || 0) + 1;
     await store.set('visits', visits);
-    if (visits > FIRST_VISITS) {
-      document.getElementById('tabs').classList.remove('hidden');
-      document.querySelector('.next-wrap').classList.add('hidden');
-      if (captchaPassed) show('stage2');
-      else show('greet');
-    }
-  }
-  // тестеру меню с сюжеткой видно всегда, даже после сброса заходов
-  if (TESTERS.includes(username)) {
-    document.getElementById('tabs').classList.remove('hidden');
-    document.getElementById('tabStory').classList.remove('hidden');
+    if (captchaPassed) revealTabs();
+    if (visits > FIRST_VISITS && captchaPassed) show('stage2');
   }
   let holdsTimer = 0;
   new ResizeObserver(() => { clearTimeout(holdsTimer); holdsTimer = setTimeout(placeHolds, 150); }).observe(document.getElementById('greet'));
