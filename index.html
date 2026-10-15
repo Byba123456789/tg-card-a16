@@ -603,7 +603,7 @@ let titleTaps = 0;
 document.getElementById('title').addEventListener('click', async () => {
   if (!(TESTERS.includes(username) || !inTg) || ++titleTaps < 5) return;
   titleTaps = 0;
-  await store.clear(['visits', 'captcha', 'tut', 'tutBird']);
+  await store.clear(['visits', 'captcha', 'tut', 'tutBird', 'story']);
   toast('Сброшено, перезаходи');
 });
 
