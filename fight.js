@@ -75,9 +75,13 @@ const Fight = C => {
     runner: { hp: 4, speed: 34, wind: 0.32, act: 0.16, rest: 0.45, reach: 19, dmg: 1 },
     stick: { hp: 3, speed: 30, wind: 0.45, act: 0.14, rest: 0.5, reach: 24, dmg: 1 },
     fat: { hp: 8, speed: 19, wind: 0.65, act: 0.18, rest: 0.8, reach: 23, dmg: 2, zone: 17 },
+    ranged: { hp: 3, speed: 26, wind: 0.55, act: 0.1, rest: 1.5, reach: 80, keep: 55, dmg: 1, proj: 'ring' },
+    boss: { hp: 70, speed: 22, reach: 0, dmg: 2 },
   };
-  const S = { hp: 6, max: 6, inv: 0, ult: 0, piano: null, dead: false, swing: 0 };
+  const S = { hp: 6, max: 6, inv: 0, ult: 0, piano: null, dead: false, swing: 0, phase3: false, script: false };
   let foes = [], fx = [], drops = [], rings = [], waves = [], waveI = 0, waveT = 0, calm = false;
+  let shots = [], pops = [], allies = [];
+  const pop = (text, x, y) => pops.push({ text, x, y, t: 1.3 });
 
   const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   const lookTo = (o, dx, dy) => {
@@ -85,9 +89,9 @@ const Fight = C => {
   };
 
   function spawn(w) {
-    const t = TYPES[w.t];
+    const t = { ...TYPES[w.t], ...(w.o || {}) };
     const e = {
-      t: w.t, look: w.look || 'gop', x: w.at[0], y: w.at[1], to: w.to, hp: w.hp || t.hp, max: w.hp || t.hp,
+      t: w.t, T: t, boss: w.t === 'boss', head: 13, cool: 1.5, atk: null, look: w.look || 'gop', x: w.at[0], y: w.at[1], to: w.to, hp: w.hp || t.hp, max: w.hp || t.hp,
       state: 'enter', time: 0, dir: 'down', face: 1, kbx: 0, kby: 0, kbt: 0, flash: 0, walk: 0, hitBy: -1,
       key: !!w.key, aim: null, moving: false, slot: Math.random() * Math.PI * 2,
     };
@@ -96,9 +100,9 @@ const Fight = C => {
   }
 
   function start(list, opts = {}) {
-    foes = []; fx = []; drops = []; rings = [];
+    foes = []; fx = []; drops = []; rings = []; shots = []; pops = [];
     waves = list; waveI = 0; waveT = 0; calm = !!opts.calm;
-    S.dead = false; S.inv = 0; S.piano = null;
+    S.dead = false; S.inv = 0; S.piano = null; S.phase3 = false; S.script = false;
     if (opts.heal !== false) S.hp = S.max;
     nextWave();
   }
@@ -131,26 +135,30 @@ const Fight = C => {
     if (!S.hp) S.dead = true;
   }
 
-  function damage(e, n, from, push = 8) {
+  // mine — удар героя: копит его ульту и даёт хитстоп; напарники бьют без задержки кадра
+  function damage(e, n, from, push = 8, mine = true) {
+    if (!foes.includes(e)) return;
     e.hp -= n;
-    e.flash = 0.09;
-    const dx = e.x - from.x, dy = e.y - from.y, d = Math.hypot(dx, dy) || 1, k = e.t === 'fat' ? push * 0.35 : push;
+    // босса бьют все разом: вспышка и искры только от удара героя, иначе он вечно белый
+    if (mine || !e.boss) e.flash = 0.09;
+    const dx = e.x - from.x, dy = e.y - from.y, d = Math.hypot(dx, dy) || 1, k = e.boss ? 0 : e.t === 'fat' ? push * 0.35 : push;
     e.kbx = dx / d * k; e.kby = dy / d * k; e.kbt = 0.12;
     // замах сбивается не всегда, иначе частые удары делают врагов безобидными
-    if (e.t !== 'fat' && e.state === 'wind' && Math.random() < 0.4) { e.state = 'rest'; e.time = 0.3; }
-    S.ult = Math.min(1, S.ult + 0.05);
-    puff(e.x, e.y - 8, 5, ['#ffffff', '#f5d6a0', '#e8a08c']);
+    if (e.t !== 'fat' && !e.boss && e.state === 'wind' && Math.random() < 0.4) { e.state = 'rest'; e.time = 0.3; }
+    if (mine) S.ult = Math.min(1, S.ult + 0.05);
+    if (mine || !e.boss) puff(e.x, e.y - (e.boss ? 24 : 8), 5, ['#ffffff', '#f5d6a0', '#e8a08c']);
+    if (e.boss) { if (mine) Sfx.play.hit(); return; }
     if (e.hp <= 0) {
       foes.splice(foes.indexOf(e), 1);
-      st.stop = 0.1;
+      st.stop = mine ? 0.1 : 0.03;
       st.shake = 0.18;
-      S.ult = Math.min(1, S.ult + 0.1);
+      if (mine) S.ult = Math.min(1, S.ult + 0.1);
       Sfx.play.kill();
       puff(e.x, e.y - 8, 12, ['#ffffff', '#c0c4cc', '#e8a08c'], 90);
       if (e.key) drops.push({ kind: 'key', x: e.x, y: e.y, t: 0 });
       else if (Math.random() < 0.28) drops.push({ kind: 'burger', x: e.x, y: e.y, t: 0 });
     } else {
-      st.stop = Math.max(st.stop, 0.06);
+      if (mine) st.stop = Math.max(st.stop, 0.06);
       Sfx.play.hit();
     }
   }
@@ -160,7 +168,7 @@ const Fight = C => {
     let n = 0;
     for (const e of [...foes]) {
       if (e.hitBy === id || e.state === 'enter') continue;
-      if (Math.hypot(e.x - tx, e.y - 7 - ty) < (e.t === 'fat' ? 18 : 14)) {
+      if (Math.hypot(e.x - tx, e.y - (e.boss ? 20 : 7) - ty) < (e.boss ? 22 : e.t === 'fat' ? 18 : 14)) {
         e.hitBy = id;
         damage(e, 1, pl);
         n++;
@@ -228,15 +236,20 @@ const Fight = C => {
     }
     rings = rings.filter(r => r.r < 150);
 
+    updateShots(dt);
+    for (const q of pops) { q.t -= dt; q.y -= 10 * dt; }
+    pops = pops.filter(q => q.t > 0);
+    if (!st.lock && !S.script) for (const a of allies) allyThink(a, dt);
+
     if (!foes.length && waveI < waves.length) {
       waveT += dt;
       if (waveT > 0.7) { waveT = 0; nextWave(); }
     }
-    for (const e of foes) think(e, dt);
+    for (const e of [...foes]) if (e.boss) bossThink(e, dt); else if (!S.script) think(e, dt);
     // и не стоят на герое (кроме рывка)
     for (const e of foes) {
       const dx = e.x - pl.x, dy = e.y - pl.y, d = Math.hypot(dx, dy);
-      if (d > 0 && d < 10 && e.state !== 'act' && e.state !== 'enter') move(e, dx / d * (10 - d), dy / d * (10 - d));
+      if (d > 0 && d < 10 && e.state !== 'act' && e.state !== 'enter' && !e.boss) move(e, dx / d * (10 - d), dy / d * (10 - d));
     }
     // враги не залезают друг в друга
     for (let i = 0; i < foes.length; i++) for (let j = i + 1; j < foes.length; j++) {
@@ -251,7 +264,7 @@ const Fight = C => {
   }
 
   function think(e, dt) {
-    const T = TYPES[e.t];
+    const T = e.T;
     e.flash = Math.max(0, e.flash - dt);
     if (e.kbt > 0) { const k = Math.min(dt, e.kbt) / 0.12; e.kbt -= dt; move(e, e.kbx * k, e.kby * k); }
     e.moving = false;
@@ -266,7 +279,11 @@ const Fight = C => {
     } else if (e.state === 'chase') {
       lookTo(e, dx, dy);
       e.time -= dt;
-      if (d < T.reach && e.time <= 0 && !st.lock) {
+      if (e.t === 'ranged') {
+        const k = d < T.keep - 8 ? -1 : d > T.reach * 0.85 ? 1 : 0;
+        if (k) { move(e, dx / d * T.speed * k * dt, dy / d * T.speed * k * dt); e.moving = true; }
+        if (d < T.reach && e.time <= 0 && !st.lock) { e.state = 'wind'; e.time = T.wind; e.aim = { x: pl.x, y: pl.y }; }
+      } else if (d < T.reach && e.time <= 0 && !st.lock) {
         e.state = 'wind';
         e.time = T.wind;
         e.aim = e.t === 'fat' ? { x: e.x + dx / d * 16, y: e.y + dy / d * 16 } : { x: pl.x, y: pl.y };
@@ -288,6 +305,11 @@ const Fight = C => {
           puff(e.aim.x, e.aim.y, 8, ['#9aa0a8', '#c8ccd2'], 50);
           if (Math.hypot(pl.x - e.aim.x, (pl.y - e.aim.y) * 1.3) < T.zone + 3) hurtHero(T.dmg, e);
           e.done = true;
+        } else if (e.t === 'ranged') {
+          const ax = pl.x - e.x, ay = pl.y - e.y, ad = Math.hypot(ax, ay) || 1;
+          shots.push({ x: e.x, y: e.y - 10, vx: ax / ad * 75, vy: ay / ad * 75, kind: T.proj, foe: true, dmg: T.dmg, life: 3 });
+          Sfx.play.swing();
+          e.done = true;
         } else Sfx.play.swing();
       }
     } else if (e.state === 'act') {
@@ -305,6 +327,233 @@ const Fight = C => {
     if (e.moving) e.walk += dt; else e.walk = 0;
   }
 
+
+  // ---------- снаряды ----------
+  function updateShots(dt) {
+    for (const sh of shots) {
+      sh.x += sh.vx * dt; sh.y += sh.vy * dt; sh.life -= dt;
+      if (sh.x < -20 || sh.x > 244 || sh.y < -40 || sh.y > 144) sh.life = 0;
+      if (sh.foe) {
+        if (Math.hypot(pl.x - sh.x, pl.y - 8 - sh.y) < 7) { hurtHero(sh.dmg, sh); sh.life = 0; }
+        continue;
+      }
+      for (const e of [...foes]) {
+        if (e.state === 'enter' || (sh.hit && sh.hit.has(e))) continue;
+        if (Math.hypot(e.x - sh.x, e.y - (e.boss ? 20 : 8) - sh.y) < (e.boss ? 18 : 9)) {
+          damage(e, sh.dmg, sh, 6, false);
+          if (sh.hit) sh.hit.add(e); else { sh.life = 0; break; }
+        }
+      }
+    }
+    shots = shots.filter(sh => sh.life > 0);
+  }
+  const aimShot = (from, to, speed, kind, dmg, extra = {}) => {
+    const ax = to.x - from.x, ay = to.y - 8 - from.y, ad = Math.hypot(ax, ay) || 1;
+    shots.push({ x: from.x, y: from.y, vx: ax / ad * speed, vy: ay / ad * speed, kind, dmg, life: 2, ...extra });
+  };
+
+  // ---------- напарники: спасённые друзья дерутся сами, ульта — сама по таймеру ----------
+  const ALLY = {
+    roma: { look: 'roma', reach: 70, cd: 0.8, dmg: 1, ranged: true, shout: 'КЛОД, ФАС!' },
+    anton: { look: 'anton', reach: 16, cd: 1.0, dmg: 2, shout: 'СПОРТПИТ!' },
+    andrey: { look: 'andrey', reach: 14, cd: 0.5, dmg: 1, shout: 'ФУРРИ-РЕЖИМ!' },
+  };
+  const SLOT = [[-16, 10], [16, 10], [0, 18]];
+  function setAllies(ids) {
+    allies = ids.map((id, i) => ({ id, ...ALLY[id], x: pl.x + SLOT[i][0], y: pl.y + SLOT[i][1], dir: 'up', face: 1, t: 0.5, ult: 0, ultT: 0, walk: 0, moving: false, atk: 0, slot: i, dashI: 0, claude: null }));
+  }
+  function nearestTo(o, r = 999) {
+    let best = null, bd = r;
+    for (const e of foes) { const d = dist(e, o); if (d < bd && e.state !== 'enter' && e.state !== 'calm') { bd = d; best = e; } }
+    return best;
+  }
+  function allyThink(a, dt) {
+    a.t -= dt; a.atk = Math.max(0, a.atk - dt); a.moving = false;
+    const busy = foes.some(e => e.state !== 'enter' && e.state !== 'calm');
+    if (busy && a.ultT <= 0) a.ult = Math.min(1, a.ult + dt / 10);
+    if (a.ult >= 1 && busy) {
+      a.ult = 0;
+      a.ultT = a.id === 'anton' ? 6 : 5;
+      pop(a.shout, a.x, a.y - 34);
+      Sfx.play.snap();
+      const tg = nearestTo(a);
+      if (a.id === 'anton' && tg) aimShot({ x: a.x, y: a.y - 14 }, tg, 170, 'bar', 3, { hit: new Set(), life: 1.5 });
+      if (a.id === 'roma') a.claude = { x: a.x + 10, y: a.y - 20, t: 0 };
+    }
+    if (a.ultT > 0) { a.ultT -= dt; if (a.ultT <= 0) a.claude = null; }
+    const move2 = (tx, ty, sp) => {
+      const gx = tx - a.x, gy = ty - a.y, gd = Math.hypot(gx, gy);
+      if (gd > 3) { lookTo(a, gx, gy); move(a, gx / gd * Math.min(sp * dt, gd), gy / gd * Math.min(sp * dt, gd)); a.moving = true; }
+      return gd;
+    };
+    // Клод летает рядом с Ромой и стреляет зелёными цифрами
+    if (a.claude) {
+      const c = a.claude;
+      c.t += dt;
+      c.x += (a.x + 12 - c.x) * dt * 4; c.y += (a.y - 22 + Math.sin(c.t * 6) * 2 - c.y) * dt * 4;
+      if (Math.floor(c.t / 0.15) !== Math.floor((c.t - dt) / 0.15)) { const tg = nearestTo(c); if (tg) aimShot(c, tg, 160, 'digit', 1, { ch: Math.random() < 0.5 ? '0' : '1' }); }
+    }
+    // Андрей-фурри носится от врага к врагу
+    if (a.id === 'andrey' && a.ultT > 0 && busy) {
+      const live = foes.filter(e => e.state !== 'enter' && e.state !== 'calm');
+      const tg = live[a.dashI % live.length];
+      if (move2(tg.x, tg.y, 150) < 9) { damage(tg, 1, a, 12, false); a.dashI++; a.atk = 0.12; }
+      if (a.moving) a.walk += dt;
+      return;
+    }
+    const tg = nearestTo(a);
+    if (!tg) {
+      move2(pl.x + SLOT[a.slot][0], pl.y + SLOT[a.slot][1], 50);
+    } else if (a.ranged) {
+      const d = dist(a, tg);
+      if (d > a.reach) move2(tg.x, tg.y, 45); else if (d < 40) move2(a.x * 2 - tg.x, a.y * 2 - tg.y, 40); else lookTo(a, tg.x - a.x, tg.y - a.y);
+      if (d < a.reach + 10 && a.t <= 0) { aimShot({ x: a.x, y: a.y - 10 }, tg, 140, 'pellet', a.dmg); a.t = a.cd; a.atk = 0.12; Sfx.play.pop(); }
+    } else {
+      const big = a.id === 'anton' && a.ultT > 0;
+      const off = tg.boss ? 22 : 10;
+      if (move2(tg.x - Math.sign(tg.x - a.x || 1) * off, tg.y, big ? 60 : 48) < 6 || dist(a, tg) < (tg.boss ? 26 : a.reach)) {
+        lookTo(a, tg.x - a.x, tg.y - a.y);
+        if (a.t <= 0) { damage(tg, big ? 2 : a.dmg, a, big ? 14 : 8, false); a.t = big ? 0.4 : a.cd; a.atk = 0.15; }
+      }
+    }
+    if (a.moving) a.walk += dt; else a.walk = 0;
+  }
+  function drawAlly(a) {
+    const { ox, oy } = scr();
+    const look = a.id === 'andrey' && a.ultT > 0 ? 'andreyF' : a.look, big = a.id === 'anton' && a.ultT > 0;
+    const f = a.moving ? Math.floor(a.walk / 0.12) % 4 : -1;
+    Actors.draw(C.b, Actors.DEFS[look], ox + a.x, oy + a.y, { dir: a.dir, face: a.face, f, bob: 0, blink: false, pose: a.atk > 0 ? 'punch' : null, scale: big ? 1.5 : 1, rot: a.rot || 0 });
+    const x = Math.round(a.x), y = Math.round(a.y), s = a.dir === 'side' ? a.face : 1;
+    if (a.id === 'roma' && a.dir === 'side') { R(x + 5 * s - (s < 0 ? 3 : 0), y - 13, 4, 2, OUTLINE); R(x + 5 * s - (s < 0 ? 3 : 0), y - 13, 1, 3, OUTLINE); }
+    if (a.id === 'anton' && !big) { R(x - 9, y - 23, 18, 1, '#9aa0a8'); R(x - 10, y - 25, 2, 5, OUTLINE); R(x + 8, y - 25, 2, 5, OUTLINE); }
+    if (a.id === 'andrey' && a.atk > 0) for (let i = 0; i < 3; i++) R(x + 6 * s + i * 2 * s, y - 16 + i, 1, 5, '#ffffff');
+    if (a.claude) drawClaude(a.claude);
+  }
+  // мини-Клод: оранжевая звёздочка с лапками-лучами
+  function drawClaude(c) {
+    const x = Math.round(c.x), y = Math.round(c.y);
+    for (let i = 0; i < 8; i++) {
+      const ang = i * Math.PI / 4 + c.t * 2;
+      for (let r = 3; r < 7; r++) R(Math.round(x + Math.cos(ang) * r), Math.round(y + Math.sin(ang) * r), 1, 1, '#d97757');
+    }
+    const { ox, oy } = scr();
+    C.disc(ox + x, oy + y, 4, OUTLINE);
+    C.disc(ox + x, oy + y, 3, '#e8865e');
+    R(x - 2, y - 1, 1, 2, OUTLINE); R(x + 1, y - 1, 1, 2, OUTLINE);
+  }
+
+  // ---------- босс «Развитие» ----------
+  const SHOUT = { storm: 'МОЗГОВОЙ ШТУРМ!', dash: 'ВЫХОД ИЗ ЗОНЫ КОМФОРТА!', summon: 'САМОРАЗВИТИЕ!', pump: 'ПРОКАЧКА!' };
+  const WIND = { storm: 0.75, dash: 0.75, summon: 0.5, pump: 0.85 };
+  function bossThink(e, dt) {
+    e.flash = Math.max(0, e.flash - dt);
+    e.moving = false;
+    const dx = pl.x - e.x, dy = pl.y - e.y, d = Math.hypot(dx, dy) || 1;
+    if (e.state === 'enter') {
+      const tx = e.to[0] - e.x, ty = e.to[1] - e.y, td = Math.hypot(tx, ty);
+      if (td < 1.5) e.state = calm ? 'calm' : 'chase';
+      else { lookTo(e, tx, ty); move(e, tx / td * 30 * dt, ty / td * 30 * dt, true); e.moving = true; e.walk += dt; }
+      return;
+    }
+    if (e.state === 'calm') { lookTo(e, dx, dy); if (!calm) e.state = 'chase'; return; }
+    if (S.script || S.phase3) return;
+    const ph2 = e.hp <= e.max * 0.6;
+    e.head += ((ph2 ? 17 : 13) - e.head) * Math.min(1, dt * 3);
+    if (e.hp <= e.max * 0.25) { e.hp = Math.ceil(e.max * 0.25); S.phase3 = true; e.atk = null; return; }
+    if (!e.atk) {
+      lookTo(e, dx, dy);
+      if (d > 42) { move(e, dx / d * e.T.speed * dt, dy / d * e.T.speed * dt); e.moving = true; e.walk += dt; }
+      e.cool -= dt;
+      if (e.cool <= 0) {
+        const minions = foes.filter(f => !f.boss).length;
+        const opts = ['storm', 'dash', ...(minions < 3 ? ['summon'] : []), ...(ph2 ? ['pump', 'storm'] : [])];
+        const kind = opts[Math.floor(Math.random() * opts.length)];
+        e.atk = { kind, t: WIND[kind], fired: 0 };
+        if (kind === 'dash') e.atk.dir = { x: dx / d, y: dy / d };
+        if (kind === 'pump') e.atk.at = { x: pl.x, y: pl.y };
+        pop(SHOUT[kind], e.x, e.y - 52);
+      }
+      return;
+    }
+    const A = e.atk;
+    A.t -= dt;
+    if (A.t > 0) return;
+    if (A.kind === 'storm') {
+      // лампочки-идеи кольцом; во второй фазе — ещё два залпа со сдвигом (спираль)
+      const n = ph2 ? 14 : 10, off = A.fired * 0.22;
+      for (let i = 0; i < n; i++) {
+        const ang = i / n * Math.PI * 2 + off;
+        shots.push({ x: e.x, y: e.y - 26, vx: Math.cos(ang) * 62, vy: Math.sin(ang) * 62, kind: 'bulb', foe: true, dmg: 1, life: 3 });
+      }
+      Sfx.play.pop();
+      A.fired++;
+      if (A.fired < (ph2 ? 3 : 1)) { A.t = 0.35; return; }
+    } else if (A.kind === 'dash') {
+      if (A.go === undefined) { A.go = 0.55; Sfx.play.swing(); }
+      A.go -= dt;
+      move(e, A.dir.x * 170 * dt, A.dir.y * 170 * dt);
+      e.moving = true; e.walk += dt;
+      if (!A.hit && d < 15) { A.hit = true; hurtHero(2, e); }
+      if (A.go > 0) { A.t = 0; return; }
+    } else if (A.kind === 'summon') {
+      for (const side of [-1, 1]) spawn({ t: 'runner', look: side < 0 ? 'gop' : 'gop3', at: [side < 0 ? -10 : 234, 40 + Math.random() * 60], to: [side < 0 ? 24 : 200, 40 + Math.random() * 60] });
+    } else if (A.kind === 'pump') {
+      st.shake = 0.3;
+      Sfx.play.slam();
+      puff(A.at.x, A.at.y, 12, ['#9aa0a8', '#c8ccd2', '#ffd23f'], 70);
+      if (Math.hypot(pl.x - A.at.x, (pl.y - A.at.y) * 1.3) < 33) hurtHero(2, A.at);
+    }
+    e.atk = null;
+    e.cool = ph2 ? 1.3 : 1.9;
+  }
+  function drawBoss(e) {
+    const { ox, oy } = scr(), s = e.scale ?? 1, r = Math.max(2, Math.round(e.head * s));
+    const f = e.moving ? Math.floor(e.walk / 0.14) % 4 : -1;
+    Actors.draw(C.b, Actors.DEFS.bossbody, ox + e.x, oy + e.y, { dir: e.dir, face: e.face, f, bob: 0, blink: false, pose: e.atk && e.atk.kind === 'pump' ? 'windup' : null, flash: e.flash > 0, scale: s, rot: e.rot || 0 });
+    if (e.rot) return;
+    const hx = ox + Math.round(e.x), hy = oy + Math.round(e.y - (16 + e.head * 0.75) * s);
+    const b = C.b, glow = e.atk && e.atk.kind === 'storm' && Math.floor(st.t * 12) % 2;
+    if (glow) { b.globalAlpha = 0.5; C.disc(hx, hy, r + 4, '#ffe066'); b.globalAlpha = 1; }
+    C.disc(hx, hy, r + 1, OUTLINE);
+    C.disc(hx, hy, r, e.flash > 0 ? '#ffffff' : '#dca487');
+    if (e.flash <= 0) {
+      C.disc(hx - Math.round(r * 0.12), hy - Math.round(r * 0.12), Math.round(r * 0.86), '#f2c4a4');
+      C.disc(hx - Math.round(r * 0.45), hy - Math.round(r * 0.45), Math.max(1, Math.round(r * 0.18)), '#fbd8bc');
+      // ёжик на макушке
+      b.fillStyle = '#3a2a1c';
+      for (let yy = -r; yy < -r * 0.3; yy += 2) for (let xx = -r; xx <= r; xx += 2) if (xx * xx + yy * yy < r * r * 0.92 && (xx + yy) % 4 === 0) b.fillRect(hx + xx, hy + yy, 1, 1);
+      // вены, злые глазки, ухмылка
+      b.fillStyle = '#8a4a6a';
+      for (let i = 0; i < 4; i++) { b.fillRect(hx - Math.round(r * 0.5) + i, hy - Math.round(r * 0.25) - (i % 2), 1, 1); b.fillRect(hx + Math.round(r * 0.35) - i, hy - Math.round(r * 0.3) + (i % 2), 1, 1); }
+      const ey = hy + Math.round(r * 0.12), ex = Math.max(2, Math.round(r * 0.28));
+      b.fillStyle = OUTLINE;
+      b.fillRect(hx - ex - 1, ey, 2, 2); b.fillRect(hx + ex, ey, 2, 2);
+      b.fillRect(hx - ex - 2, ey - 2, 3, 1); b.fillRect(hx + ex, ey - 2, 3, 1);
+      b.fillRect(hx - ex, ey - 3, 1, 1); b.fillRect(hx + ex + 1, ey - 3, 1, 1);
+      b.fillRect(hx - Math.round(r * 0.25), hy + Math.round(r * 0.55), Math.round(r * 0.5), 1);
+      b.fillRect(hx + Math.round(r * 0.25), hy + Math.round(r * 0.5), 1, 1);
+    }
+  }
+  const boss = () => foes.find(e => e.boss);
+  function skip() {
+    const bs = boss();
+    foes = bs ? [bs] : [];
+    waves = []; waveI = 0; shots = [];
+    if (bs) { bs.hp = Math.ceil(bs.max * 0.25); S.phase3 = true; bs.atk = null; }
+  }
+  // глаза в темноте: светятся поверх затемнения
+  function drawEyes() {
+    const b = C.b, { ox, oy } = scr();
+    for (const e of foes) {
+      const def = Actors.DEFS[e.look];
+      if (!def.anim) continue;
+      const x = ox + Math.round(e.x), y = oy + Math.round(e.y) - 20, side = e.dir === 'side';
+      if (e.dir === 'up') continue;
+      b.fillStyle = def.P.E;
+      const pts = side ? [[e.face * 3, 0]] : [[-3, 0], [3, 0]];
+      for (const [dx] of pts) { b.globalAlpha = 0.35; b.fillRect(x + dx - 1, y - 1, 3, 3); b.globalAlpha = 1; b.fillRect(x + dx, y, 1, 1); }
+    }
+  }
   // отрисовка
   const scr = () => C.view();
   function drawFoe(e) {
@@ -378,13 +627,25 @@ const Fight = C => {
     C.b.globalAlpha = 1;
   }
   function items() {
-    const list = foes.map(e => [e.y, () => drawFoe(e)]);
+    const list = foes.map(e => [e.y, () => (e.boss ? drawBoss(e) : drawFoe(e))]);
+    for (const a of allies) list.push([a.y, () => drawAlly(a)]);
     for (const d of drops) list.push([d.y, () => drawDrop(d)]);
     if (S.piano) list.push([S.piano.y, () => drawPiano(S.piano)]);
     return list;
   }
   function drawUnder() {
     const b = C.b;
+    const bs = boss();
+    if (bs && bs.atk && bs.atk.t > 0) {
+      const { ox, oy } = scr();
+      if (bs.atk.kind === 'dash') {
+        b.fillStyle = '#e74c3c';
+        b.globalAlpha = 0.5 + 0.3 * Math.sin(st.t * 30);
+        for (let i = 6; i < 170; i += 4) b.fillRect(Math.round(ox + bs.x + bs.atk.dir.x * i) - 1, Math.round(oy + bs.y + bs.atk.dir.y * i) - 1, 3, 3);
+        b.globalAlpha = 1;
+      }
+      if (bs.atk.kind === 'pump') { b.globalAlpha = 0.25 + 0.25 * (1 - bs.atk.t / WIND.pump); C.disc(ox + bs.atk.at.x, oy + bs.atk.at.y, 30, '#e74c3c'); b.globalAlpha = 1; }
+    }
     for (const e of foes) {
       if (e.t === 'fat' && e.state === 'wind') {
         const k = 1 - e.time / TYPES.fat.wind;
@@ -404,6 +665,15 @@ const Fight = C => {
   }
   function drawOver() {
     for (const p of fx) R(Math.round(p.x), Math.round(p.y), 2, 2, p.col);
+    for (const sh of shots) {
+      const x = Math.round(sh.x), y = Math.round(sh.y);
+      if (sh.kind === 'ring') { R(x - 3, y - 3, 7, 7, OUTLINE); R(x - 2, y - 2, 5, 5, '#e74c3c'); R(x - 1, y - 1, 3, 3, '#f4f4f4'); R(x, y, 1, 1, OUTLINE); }
+      else if (sh.kind === 'cake') { R(x - 3, y - 3, 6, 6, OUTLINE); R(x - 2, y - 2, 4, 2, '#ff8fb8'); R(x - 2, y, 4, 2, '#c8781e'); R(x, y - 4, 1, 1, '#e74c3c'); }
+      else if (sh.kind === 'bulb') { R(x - 2, y - 3, 5, 6, OUTLINE); R(x - 1, y - 2, 3, 3, '#ffe066'); R(x, y - 2, 1, 1, '#ffffff'); R(x - 1, y + 1, 3, 1, '#9aa0a8'); }
+      else if (sh.kind === 'bar') { R(x - 7, y - 1, 15, 3, OUTLINE); R(x - 6, y, 13, 1, '#c8ccd2'); R(x - 8, y - 3, 3, 7, OUTLINE); R(x + 6, y - 3, 3, 7, OUTLINE); }
+      else if (sh.kind === 'digit') { R(x - 1, y - 2, 3, 5, '#16301a'); R(x, y - 2, 1, 5, '#4ade80'); if (sh.ch === '0') { R(x - 1, y - 2, 3, 1, '#4ade80'); R(x - 1, y + 2, 3, 1, '#4ade80'); } }
+      else { R(x - 1, y - 1, 3, 3, OUTLINE); R(x, y, 1, 1, '#ffd23f'); }
+    }
     if (S.piano) for (const n of S.piano.notes) {
       C.b.globalAlpha = Math.min(1, n.life * 2);
       const x = Math.round(n.x), y = Math.round(n.y);
@@ -431,5 +701,5 @@ const Fight = C => {
     b.fillRect(6, 16, Math.round(w * S.ult), 3);
   }
 
-  return { S, start, engage, cleared, arrived, spawn, swingHit, nearest, ult, update, items, drawUnder, drawOver, hud, hurtHero, foes: () => foes, drops: () => drops };
+  return { S, setAllies, allies: () => allies, pops: () => pops, boss, skip, drawEyes, pop, start, engage, cleared, arrived, spawn, swingHit, nearest, ult, update, items, drawUnder, drawOver, hud, hurtHero, foes: () => foes, drops: () => drops };
 };

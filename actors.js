@@ -60,11 +60,11 @@ const Actors = (() => {
     U: ['...CCCCCC...', '.CCCCCCCCCC.', 'CCCCCCCCCCCC', 'CCCCcVVcCCCC'],
     S: ['...CCCCCC...', '..CCCCCCCCC.', '.CCCCCCCCCCC', 'cCCCCCCVVVVV'],
   };
-  // кошачьи ушки над головой (Рома)
+  // плюшевые ушки на ободке: сидят сверху на макушке (Рома)
   const EARS = {
-    D: ['.Z........Z.', 'ZzZ......ZzZ', 'ZzzZ....ZzzZ'],
-    U: ['.Z........Z.', 'ZZZ......ZZZ', 'ZZZZ....ZZZZ'],
-    S: ['...Z....Z...', '..ZZZ..ZzZ..', '..ZZZZZzzZ..'],
+    D: ['...Z....Z...', '..ZZZ..ZZZ..', '..ZzZ..ZzZ..'],
+    U: ['...Z....Z...', '..ZZZ..ZZZ..', '..ZZZ..ZZZ..'],
+    S: ['...Z...Z....', '..ZZZ.ZZZ...', '..ZZZ.ZzZ...'],
   };
   const capify = (head, cap) => head.map((r, i) => cap[i] ? [...r].map((ch, x) => cap[i][x] === '.' ? ch : cap[i][x]).join('') : r);
 
@@ -82,6 +82,8 @@ const Actors = (() => {
           else if (o.hood && y >= 2 && y < h - 1 && (x === mid - 1 || x === mid)) c = 'W';
           else if (o.zip && y > 0 && y < h - 1 && x === mid) c = 'x';
           if (o.stripe && y === 1 && (x === 2 || x === w - 3)) c = 'T';
+          if (o.belly && y >= 2 && y < h - 1 && x >= mid - 2 && x <= mid + 1) c = 'W';
+          if (o.print && y > 0 && y < h - 1 && x > 1 && x < w - 1 && (x * 3 + y * 5) % 7 === 0) c = 'x';
         } else if (view === 'U') {
           if (o.hood && y < 3 && x >= 3 && x <= w - 4) c = y < 2 ? 'W' : 'x';
           if (o.stripe && y === 1 && (x === 1 || x === w - 2)) c = 'T';
@@ -126,6 +128,87 @@ const Actors = (() => {
       pal: { ...TRACK('#1f1f24', '#121215', '#2f2f36'), H: '#2e2218', h: '#45342a', d: '#1c140e', S: '#f0c0a0', s: '#d49c80', x: '#b0b0b8', B: '#f0f0f0' },
     },
   };
+
+  // Антон: светлая растрёпанная чёлка до глаз
+  const MOP_HEAD = {
+    D: [
+      '..hhhhhhhh..', '.hhHHhHHhhh.', 'hhHHHHHHHHhh', 'hHHdHHHdHHHh', 'HHdHHdHHdHHH', 'HdHHdHHdHHdH',
+      'HdSdHdSdHdSH', 'HSwESdSSwESH', 'HSwESSSSwESH', '.SrSSSSSSrS.', '..SSSmmSSS..', '...SSSSSS...',
+    ],
+    U: SHORT_HEAD.U.map(r => r.replace(/S/g, 'H')).map((r, i) => i > 8 ? SHORT_HEAD.U[i] : r),
+    S: [
+      '...hhhhhhh..', '..hhHHHHhhh.', '.hHHHHHHHHHh', 'hHHHHdHHdHHH', 'HHHHdHHdHHdH', 'HHHdHHdSdHSH',
+      'HHHHHdSSSdSS', 'HHdHHSSSSwES', 'HHHHHSSSSwES', '.HdHSSSSrSSS', '..HdSSSSSmS.', '...SSSSSSS..',
+    ],
+  };
+  // аниматроники: голова-маска с мордой и светящимися глазами, уши отдельно
+  const ANIM_HEAD = {
+    D: [
+      '..dHHHHHHd..', '.dHHHHHHHHd.', 'dHHHhHHhHHHd', 'HHHHHHHHHHHH', 'HwwHHHHHHwwH', 'HwEHHHHHHwEH',
+      'HHHHSSSSHHHH', 'HHHSSBBSSHHH', 'dHHSSSSSSHHd', '.dHSmmmmSHd.', '..dSSSSSSd..', '...dddddd...',
+    ],
+    U: [
+      '..dHHHHHHd..', '.dHHHHHHHHd.', 'dHHHhHHhHHHd', 'HHHHHHHHHHHH', 'HHHHHHHHHHHH', 'HHHHHHHHHHHH',
+      'HHHHHHHHHHHH', 'HHHHHHHHHHHH', 'dHHHHHHHHHHd', '.dHHHHHHHHd.', '..dHHHHHHd..', '...dddddd...',
+    ],
+    S: [
+      '..dHHHHHHd..', '.dHHHHHHHHd.', 'dHHHHhHHHHHd', 'HHHHHHHHHHHH', 'HHHHHHHHwwHH', 'HHHHHHHHwEHH',
+      'HHHHHHHSSSSS', 'HHHHHHSSSSBB', 'dHHHHHSSSSSS', '.dHHHHHSmmmS', '..dHHHHSSSS.', '...ddddddd..',
+    ],
+  };
+  const ANIM_EARS = {
+    bear: { D: ['.dd......dd.', 'dHHd....dHHd'], U: ['.dd......dd.', 'dHHd....dHHd'], S: ['..dd..dd....', '.dHHddHHd...'] },
+    bunny: {
+      D: ['..hd....dh..', '..Hh....hH..', '..Hh....hH..', '..HH....HH..', '..dd....dd..'],
+      U: ['..dd....dd..', '..HH....HH..', '..HH....HH..', '..HH....HH..', '..dd....dd..'],
+      S: ['...hd.dh....', '...Hh.hH....', '...Hh.hH....', '...HH.HH....', '...dd.dd....'],
+    },
+    fox: { D: ['.d........d.', 'dHd......dHd', 'dHHd....dHHd'], U: ['.d........d.', 'dHd......dHd', 'dHHd....dHHd'], S: ['..d...d.....', '.dHd.dHd....', '.dHHddHHd...'] },
+    chick: { D: ['.....hh.....', '....hHHh....'], U: ['.....hh.....', '....hHHh....'], S: ['....hh......', '...hHHh.....'] },
+  };
+  // уши фурри (ульта Андрея)
+  const FUR_EARS = { D: ['.Z........Z.', 'ZzZ......ZzZ', 'ZzzZ....ZzzZ'], U: ['.Z........Z.', 'ZZZ......ZZZ', 'ZZZZ....ZZZZ'], S: ['..Z...Z.....', '.ZzZ.ZzZ....', '.ZzzZZzzZ...'] };
+  const EMPTY_HEAD = { D: Array(12).fill('.'.repeat(12)), U: Array(12).fill('.'.repeat(12)), S: Array(12).fill('.'.repeat(12)) };
+  const ANIM = (fur, light, dark, muzzle, eye, ears, more = {}) => ({
+    head: ANIM_HEAD, ears: ANIM_EARS[ears], body: bodies(10, 7, { belly: true }), anim: true,
+    pal: { H: fur, h: light, d: dark, S: muzzle, s: muzzle, w: '#fff6d0', E: eye, m: '#2a1a14', B: '#1a1a1e',
+      J: fur, j: light, q: dark, A: dark, a: fur, Q: dark, W: muzzle, P: dark, p: fur, L: dark, r: muzzle, ...more },
+  });
+  Object.assign(DEFS, {
+    anton: {
+      head: MOP_HEAD, body: bodies(12, 7, {}),
+      pal: { H: '#c7b48a', h: '#e2d3ac', d: '#9a875e', S: '#f6d2b8', s: '#ddb194', E: '#5f7f96',
+        J: '#5b2fc9', j: '#7449e0', q: '#3f1f96', A: '#4a25ad', a: '#6a3ed8', Q: '#33187a', P: '#2e3442', p: '#434a5c', L: '#1f242e', B: '#ececec' },
+    },
+    andrey: {
+      head: SHORT_HEAD, body: bodies(10, 7, { print: true }),
+      pal: { H: '#c9a878', h: '#e0c49a', d: '#9a7a50', S: '#f4d0b6', s: '#dbae92', E: '#4a6a8a', m: '#c47d6c',
+        J: '#22222a', j: '#33333d', q: '#141418', A: '#1b1b22', a: '#2a2a33', Q: '#101014', x: '#8a8a94', P: '#2f3646', p: '#444c60', L: '#1e2230', B: '#d8d8d8' },
+    },
+    andreyF: {
+      head: SHORT_HEAD, ears: FUR_EARS, body: bodies(10, 7, { belly: true }),
+      pal: { H: '#e07a2e', h: '#f29a4a', d: '#a8521c', S: '#f4d0b6', s: '#dbae92', E: '#2a4a2a', Z: '#e07a2e', z: '#f7c9a0',
+        J: '#e07a2e', j: '#f29a4a', q: '#a8521c', A: '#a8521c', a: '#e07a2e', Q: '#7a3a12', W: '#f7e0c4', P: '#a8521c', p: '#e07a2e', L: '#7a3a12', B: '#3a2416' },
+    },
+    lg1: {
+      head: SHORT_HEAD, cap: CAP, body: bodies(10, 7, { zip: true }),
+      pal: { C: '#d63031', c: '#ff5a5a', V: '#7a1414', H: '#6a4a2c', d: '#4a321c', J: '#e8372c', j: '#ff5b4f', q: '#a8201a', A: '#a8201a', a: '#e8372c', Q: '#7a1410',
+        x: '#ffd23f', P: '#f0c4a2', p: '#f6d2b8', L: '#d6a083', B: '#f2f2f2', T: '#ffffff' },
+    },
+    lg2: {
+      head: SHORT_HEAD, body: bodies(10, 7, { zip: true }),
+      pal: { H: '#2a1e14', h: '#3e2c1c', d: '#1a120c', S: '#eebfa0', J: '#e8372c', j: '#ff5b4f', q: '#a8201a', A: '#a8201a', a: '#e8372c', Q: '#7a1410',
+        x: '#ffd23f', P: '#2a3550', p: '#3a4868', L: '#1a2236', B: '#f2f2f2' },
+    },
+    bear: ANIM('#8a5a32', '#a8743f', '#5e3a1e', '#d9b48a', '#ff3b3b', 'bear'),
+    bunny: ANIM('#7a5cc0', '#9a7ee0', '#4e3a86', '#c8b8f0', '#ff3b3b', 'bunny'),
+    chick: ANIM('#f2c230', '#ffe066', '#b88a10', '#f08a24', '#ffffff', 'chick', { W: '#fff6d0', m: '#c0392b' }),
+    fox: ANIM('#c0392b', '#e05a4a', '#7a1f16', '#e8c8a8', '#ffd23f', 'fox'),
+    bossbody: {
+      head: EMPTY_HEAD, body: bodies(12, 8, { zip: true, stripe: true }), stripes: true,
+      pal: { ...TRACK('#2b2f3a', '#1a1d24', '#3c414f'), x: '#c8ccd6', B: '#f0f0f0' },
+    },
+  });
   for (const [id, d] of Object.entries(DEFS)) {
     d.id = id;
     d.P = { ...BASE, ...d.pal };
@@ -194,7 +277,7 @@ const Actors = (() => {
       blit(d.body.S, bx, by);
       if (pose === 'tied') { px('Y', bx, by + 2, bw - 2, 1); px('Y', bx, by + 4, bw - 2, 1); px('y', bx, by + 3, 1, 1); }
       blit(d.heads[st.blink ? 'Sb' : 'S'], FX - hw / 2, by - 11);
-      if (d.ears) blit(d.ears.S, FX - hw / 2, by - 14);
+      if (d.ears) blit(d.ears.S, FX - hw / 2, by - 11 - d.ears.S.length);
       // замах: рука поднята за головой
       if (pose === 'windup') { px('J', FX - hw / 2 - 1, by - 6, 2, 7); fist(FX - hw / 2 - 2, by - 9); }
       if (pose === 'punch') { px('J', FX, by + 2, 6, 2); fist(FX + 6, by + 1); }
@@ -217,7 +300,7 @@ const Actors = (() => {
         if (up) { px('S', FX - 2, by + 3, 4, 2); px('Y', FX - 2, by + 3, 4, 1); }
       }
       blit(d.heads[up ? 'U' : st.blink ? 'Db' : 'D'], FX - hw / 2, by - 11);
-      if (d.ears) blit(d.ears[v], FX - hw / 2, by - 14);
+      if (d.ears) blit(d.ears[v], FX - hw / 2, by - 11 - d.ears[v].length);
       if (pose === 'windup') { px('J', FX + hw / 2, by - 6, 2, 7); fist(FX + hw / 2 - 1, by - 9); }
     }
     // обводка силуэтом по 4 сторонам (+1 px поля)
@@ -255,15 +338,14 @@ const Actors = (() => {
     ctx.fillRect(x - 5 - fat, y, 10 + fat * 2, 1);
     ctx.fillRect(x - 4 - fat, y + 1, 8 + fat * 2, 1);
     ctx.globalAlpha = 1;
-    const img = frame(d, a);
-    const px = Math.round(x) - d.FX - 1, py = Math.round(y) - d.FY - 1;
-    if (a.dir === 'side' && a.face < 0) {
-      ctx.save();
-      ctx.translate(px * 2 + img.width, 0);
-      ctx.scale(-1, 1);
-      ctx.drawImage(img, px, py);
-      ctx.restore();
-    } else ctx.drawImage(img, px, py);
+    const img = frame(d, a), s = a.scale || 1;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.translate(x, y - Math.round(a.z || 0));
+    if (a.rot) ctx.rotate(a.rot);
+    ctx.scale(a.dir === 'side' && a.face < 0 ? -s : s, s);
+    ctx.drawImage(img, -d.FX - 1, -d.FY - 1);
+    ctx.restore();
   }
 
   return { DEFS, frame, draw };

@@ -59,9 +59,14 @@ const Portrait = (() => {
     roma: { rx: 11.5, ry: 12.5, outfit: 'jacket', hair: 'back', ears: true, pal: { E: '#5f6f5a', e: '#a9b8a2' } },
     gop: { rx: 11.5, ry: 12.5, outfit: 'track', hair: 'cap', pal: { E: '#4a3a2a', e: '#8a7460', b: '#2a1e14', l: '#3a2a1c' } },
     fat: { rx: 13.8, ry: 12.5, outfit: 'track', hair: 'buzz', chin: true, pal: { E: '#3e3226', e: '#7a6650', b: '#1c140e', l: '#2e2218' } },
+    anton: { rx: 12, ry: 12.5, outfit: 'tee', hair: 'bangs', tips: 3, hairMap: { 1: '6', 2: '6', 3: '7', 4: '8', 5: '9' },
+      pal: { E: '#5f7f96', e: '#a8c0d0', b: '#9a875e', U: '#6a3ed8', u: '#5b2fc9', V: '#3f1f96' } },
+    andrey: { rx: 11.5, ry: 12.5, outfit: 'shirt', hair: 'back', hairMap: { 6: '3', 7: '4', 8: '5', 9: '5' },
+      pal: { E: '#4a6a8a', e: '#9ab4cc', b: '#3a2a1c', U: '#2a2a33', u: '#1c1c22', V: '#101014' } },
+    boss: { rx: 17, ry: 14.5, outfit: 'track', hair: 'buzz', veins: true, pal: { E: '#2a1a14', e: '#ffffff', b: '#1c140e', l: '#2e2218', S: '#f2c4a4', s: '#dca487', t: '#c08870', a: '#fbd8bc' } },
   };
 
-  const SLEEVE = { tux: ['J', 'q'], jacket: ['f', 'G'], track: ['u', 'V'] };
+  const SLEEVE = { tux: ['J', 'q'], jacket: ['f', 'G'], track: ['u', 'V'], tee: ['u', 'V'], shirt: ['u', 'V'] };
 
   function outfit(set, who) {
     const kind = WHO[who].outfit;
@@ -84,6 +89,10 @@ const Portrait = (() => {
         const v = Math.max(2, Math.floor((y - 36) * 0.5) + 2);
         for (let x = Math.ceil(CX - v); x <= CX + v; x++) set(x, y, Math.abs(x - CX) > v - 1.5 ? 'n' : 'N');
         if (y < 40) for (let x = 12; x < 28; x++) if (Math.abs(x - CX) > 4) set(x, y, y === 36 ? 'N' : 'n');
+      } else if (kind === 'tee' || kind === 'shirt') {
+        // футболка: круглый ворот; рубашка: серый принт точками
+        if (y === 36) for (let x = 14; x < 26; x++) set(x, y, 'V');
+        if (kind === 'shirt') for (let x = 2; x < PW - 2; x++) if ((x * 3 + y * 5) % 9 === 0 && y > 37) set(x, y, 'n');
       } else {
         // олимпийка: молния по центру, белые полосы по плечам
         set(Math.round(CX), y, 'T');
@@ -115,8 +124,10 @@ const Portrait = (() => {
     for (const x of w.chin ? [10, 11, 12, 27, 28, 29] : [12, 13, 26, 27]) set(x, 26, 'r');
   }
 
-  function hair(set, who) {
-    const kind = WHO[who].hair;
+  function hair(set0, who) {
+    const kind = WHO[who].hair, map = WHO[who].hairMap || {}, more = WHO[who].tips || 0;
+    // свои оттенки волос: те же пряди, другие цвета
+    const set = (x, y, c) => set0(x, y, map[c] || c);
     if (kind === 'bangs') {
       // шапка + чёлка прядями до бровей, отдельные пряди падают на глаза
       // пряди идут наискосок (чёлка зачёсана вбок), у каждой свой кончик; свет сверху слева
@@ -127,7 +138,7 @@ const Portrait = (() => {
           const tuft = y < 3 && rnd(x * 3) > 0.55 && Math.abs(x - CX) < 9;
           if (dx * dx + dy * dy > 1 && !tuft) continue;
           const sx = x + y * 0.45, id = Math.floor(sx / 4), inS = sx - id * 4;
-          let end = TIPS[((id % TIPS.length) + TIPS.length) % TIPS.length];
+          let end = TIPS[((id % TIPS.length) + TIPS.length) % TIPS.length] + more;
           if (inS < 1 || inS > 3) end -= 1;
           if (inS > 3.4) end -= 1;
           if (x < 9 || x > 30) end = 24 + (id % 3);
@@ -182,15 +193,17 @@ const Portrait = (() => {
   }
 
   function ears(set) {
-    // кошачьи ушки: пушистые треугольники над висками
-    // макушка уха наружу, основание на волосах; внешний край темнее
-    for (const [apex, foot] of [[5, 11], [34, 28]]) {
-      for (let y = 0; y < 12; y++) {
-        const cx = apex + (foot - apex) * y / 12, half = y * 0.42;
+    // ободок с плюшевыми ушками: сидят сверху на макушке, кончики чуть наружу и скруглены
+    for (const [cx0, dir] of [[13, -1], [26, 1]]) {
+      for (let y = 0; y < 10; y++) {
+        const cx = cx0 + dir * (9 - y) * 0.22, half = y < 2 ? y * 0.8 + 0.6 : Math.min(4.2, 1.6 + (y - 2) * 0.55);
+        // тёмный контур, чтобы ухо не сливалось со светлыми волосами
+        set(Math.round(cx - half) - 1, y, '6');
+        set(Math.round(cx + half) + 1, y, '6');
+        if (y === 0) set(Math.round(cx), y - 1, '6');
         for (let x = Math.round(cx - half); x <= Math.round(cx + half); x++) {
-          const k = Math.abs(x - cx) / Math.max(1, half);
-          const outer = (x - cx) * (apex < CX ? -1 : 1) > 0;
-          set(x, y, y > 3 && k < 0.5 ? 'z' : outer && k > 0.7 ? 'Y' : 'Z');
+          const k = Math.abs(x - cx) / half;
+          set(x, y, y === 0 ? '6' : y > 3 && k < 0.45 ? 'z' : k > 0.75 && (x - cx) * dir > 0 ? 'Y' : 'Z');
         }
       }
     }
@@ -203,6 +216,8 @@ const Portrait = (() => {
     face(set, who);
     hair(set, who);
     if (WHO[who].ears) ears(set);
+    // вздутые вены на огромном лбу
+    if (WHO[who].veins) for (const [x, y] of [[9, 10], [10, 11], [10, 12], [11, 13], [29, 9], [28, 10], [28, 11], [27, 12], [19, 8], [20, 9]]) set(x, y, 'm');
     return { G, set };
   }
 

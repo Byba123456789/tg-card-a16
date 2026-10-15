@@ -203,5 +203,194 @@ const Places = C => {
     signs: [],
   };
 
-  return { oka, food, bk, bkin, FW, FH };
+
+  // --- вышка у Пушкина: осенний лес, тропинка, решётчатая вышка с площадкой наверху ---
+  const TOP = -30, BASE = 24;
+  function drawTower() {
+    const legL = y => 94 + (BASE - y) * 0.16, legR = y => 130 - (BASE - y) * 0.16;
+    for (let y = TOP; y <= BASE; y++) {
+      R(Math.round(legL(y)) - 1, y, 4, 1, OUTLINE);
+      R(Math.round(legL(y)), y, 2, 1, '#9aa3ad');
+      R(Math.round(legR(y)) - 1, y, 4, 1, OUTLINE);
+      R(Math.round(legR(y)), y, 2, 1, '#7d8690');
+    }
+    // раскосы крест-накрест
+    for (let y0 = TOP + 4; y0 < BASE - 4; y0 += 12) {
+      for (let i = 0; i <= 12; i++) {
+        const y = y0 + i, l = legL(y) + 1, r = legR(y);
+        R(Math.round(l + (r - l) * i / 12), y, 1, 1, '#8a939e');
+        R(Math.round(r - (r - l) * i / 12), y, 1, 1, '#6d7680');
+      }
+      R(Math.round(legL(y0)), y0, Math.round(legR(y0) - legL(y0)) + 2, 1, '#8a939e');
+    }
+    for (let y = TOP + 2; y < BASE; y += 3) R(110, y, 5, 1, '#c8ced6');
+    R(109, TOP, 1, BASE - TOP, '#6d7680');
+    R(115, TOP, 1, BASE - TOP, '#6d7680');
+    // площадка с перилами
+    R(96, TOP - 1, 33, 4, OUTLINE);
+    R(97, TOP, 31, 2, '#b8c0c8');
+    R(96, TOP - 9, 1, 8, '#6d7680');
+    R(128, TOP - 9, 1, 8, '#6d7680');
+    R(96, TOP - 9, 33, 1, '#8a939e');
+    R(96, TOP - 5, 33, 1, '#8a939e');
+  }
+  const tower = {
+    solids: [[92, BASE - 4, 8, 6], [125, BASE - 4, 8, 6], [6, 30, 10, 6], [206, 44, 10, 6], [30, 98, 12, 6], [184, 94, 12, 6]],
+    ground() {
+      fillScreen('#3b5527');
+      const [x0, w] = span();
+      R(x0, -100, w, 60, '#a9cbe6');
+      R(x0, -52, w, 12, '#f3cf9a');
+      for (let x = Math.floor(x0 / 12) * 12 - 12, i = 0; x < x0 + w + 12; x += 12, i++) {
+        disc(x, -36 + (i % 3) * 3, 11, ['#2f4a24', '#c0612a', '#3a5a2a', '#d9a030'][i % 4]);
+        disc(x + 5, -28 + (i % 2) * 4, 9, ['#3a5a2a', '#2f4a24', '#c8742e'][i % 3]);
+      }
+      R(x0, -22, w, 22, '#2e4620');
+      for (let i = 0; i < 160; i++) R((i * 47) % FW, (i * 29) % FH, 1, 2, i % 3 ? '#4d6a32' : '#5d7a3c');
+      for (let y = 0; y < FH; y++) R(Math.round(102 + Math.sin(y * 0.05) * 6), y, 22, 1, y % 4 ? '#9a7a52' : '#8a6a44');
+      leafPile(40, 60); leafPile(170, 30); leafPile(200, 100); leafPile(60, 110);
+      if (C.st.tramp) {
+        const [tx, ty] = C.st.tramp;
+        disc(tx, ty, 13, OUTLINE);
+        disc(tx, ty, 12, '#2a6fb5');
+        disc(tx, ty, 9, '#1c1c22');
+        disc(tx - 3, ty - 2, 3, '#3a3a46');
+      }
+    },
+    props: [
+      [BASE, drawTower],
+      [36, () => tree(10, 36, ['#d9822b', '#e0a030', '#c0392b'])],
+      [50, () => tree(FW - 10, 50, ['#3a5a2a', '#c0612a', '#e0a030'])],
+      [104, () => tree(36, 104, ['#c0392b', '#e0603a', '#e0a030'])],
+      [100, () => tree(190, 100, ['#e0a030', '#d9822b', '#3a5a2a'])],
+    ],
+    signs: [],
+  };
+
+  // --- пиццерия-хоррор: тёмный зал со сценой, подсобка с запчастями ---
+  const pizza1 = {
+    dark: true,
+    solids: [[38, 40, 26, 10], [160, 40, 26, 10], [38, 88, 26, 10], [160, 88, 26, 10]],
+    ground() {
+      fillScreen('#08060c');
+      for (let y = 0; y < FH; y += 8) for (let x = 0; x < FW; x += 8) R(x, y, 8, 8, ((x + y) / 8) % 2 ? '#e8e2d6' : '#1c1a20');
+      R(0, -44, FW, 44, '#2a1630');
+      for (let x = 0; x < FW; x += 6) R(x, -44, 3, 44, '#30193a');
+      R(0, -6, FW, 6, '#1a0e1e');
+      // сцена с занавесом
+      R(64, -40, 96, 36, '#120a16');
+      for (let i = 0; i < 6; i++) { R(64 + i * 3, -40, 3, 36, i % 2 ? '#8a1a2a' : '#a8243a'); R(157 - i * 3, -40, 3, 36, i % 2 ? '#8a1a2a' : '#a8243a'); }
+      for (let i = 0; i < 7; i++) R(84 + i * 9, -34 + (i % 2) * 4, 2, 2, '#ffd23f');
+      box(64, 0, 96, 4, 6, '#5a3a22', '#3e2616');
+      // плакаты
+      for (const [x, c] of [[14, '#e74c3c'], [184, '#3498db']]) { R(x, -34, 22, 26, OUTLINE); R(x + 1, -33, 20, 24, c); R(x + 5, -28, 12, 10, '#f4d6a0'); }
+      R(FW, 50, 6, 32, '#000000');
+    },
+    props: [[40, () => {
+      for (const [x, y] of [[38, 40], [160, 40], [38, 88], [160, 88]]) {
+        box(x, y, 26, 10, 6, '#f4f4f4', '#c8c8c8');
+        R(x + 3, y - 9, 4, 4, '#e74c3c'); R(x + 4, y - 11, 2, 2, '#ffd23f');
+        R(x + 18, y - 9, 4, 4, '#3498db'); R(x + 19, y - 11, 2, 2, '#ffd23f');
+        R(x + 10, y - 8, 6, 2, '#e0a030');
+      }
+    }]],
+    signs: [['ВЕСЁЛЫЙ МИШКА', 112, -14, 5.5, '#ffd23f'], ['ПИЦЦА', 25, -16, 4, '#ffffff'], ['ВЕСЕЛИСЬ!', 195, -16, 3.6, '#ffffff']],
+  };
+  const pizza2 = {
+    dark: true,
+    solids: [[0, 0, FW, 10], [104, 30, 16, 6]],
+    ground() {
+      fillScreen('#08060c');
+      for (let y = 0; y < FH; y += 12) for (let x = 0; x < FW; x += 12) R(x, y, 12, 12, ((x + y) / 12) % 2 ? '#3a3a40' : '#323238');
+      R(0, -40, FW, 40, '#24242a');
+      // стеллажи с головами аниматроников
+      for (let i = 0; i < 6; i++) {
+        const x = 6 + i * 36;
+        box(x, 0, 30, 10, 30, '#4a3a2a', '#2e241a');
+        R(x + 4, -24, 8, 7, ['#8a5a32', '#7a5cc0', '#f2c230', '#c0392b'][i % 4]);
+        R(x + 6, -21, 1, 1, '#ff3b3b'); R(x + 9, -21, 1, 1, '#ff3b3b');
+        R(x + 16, -22, 10, 5, '#6a6a72');
+        R(x + 4, -9, 22, 4, '#5a5a62');
+      }
+      R(-6, -40, 6, FH + 46, '#1a1a1e');
+      R(FW, -40, 6, FH + 46, '#1a1a1e');
+    },
+    props: [[36, () => { box(104, 30, 16, 6, 6, '#6a4224', '#4a2e18'); box(104, 30, 16, 3, 14, '#6a4224', '#4a2e18', 6); }]],
+    signs: [['ЗАПЧАСТИ', 112, -30, 5, '#ff6b6b']],
+  };
+
+  // --- Ям-Ижора: площадь, деревянные дома, сцена с баннером, толпа ---
+  const CROWD = [];
+  for (let i = 0; i < 16; i++) CROWD.push([12 + i * 13 + (i % 2) * 4, 6 + (i % 3), ['gop', 'gop2', 'gop3', 'lg2', 'fat'][i % 5]]);
+  for (let i = 0; i < 5; i++) { CROWD.push([4, 26 + i * 18, ['gop2', 'gop3', 'gop'][i % 3], 1]); CROWD.push([FW - 4, 30 + i * 18, ['gop', 'gop3', 'lg2'][i % 3], -1]); }
+  const yam = {
+    solids: [[0, 0, FW, 12], [0, 0, 9, FH], [FW - 9, 0, 9, FH]],
+    ground() {
+      fillScreen('#4a4d55');
+      const [x0, w] = span();
+      R(x0, -90, w, 60, '#f0a868');
+      R(x0, -50, w, 10, '#e88a58');
+      for (let x = Math.floor(x0 / 34) * 34, i = 0; x < x0 + w; x += 34, i++) {
+        const c = ['#7a4a2a', '#4a6a8a', '#8a3a2a', '#5a7a4a'][i % 4];
+        R(x + 2, -40, 30, 36, c);
+        for (let y = -38; y < -4; y += 3) R(x + 2, y, 30, 1, '#00000022');
+        for (let k = 0; k < 6; k++) R(x + 2 + k * 3, -46 + k, 30 - k * 6, 1, '#3a2a22');
+        R(x + 8, -30, 7, 8, '#ffe8a0'); R(x + 20, -30, 7, 8, '#ffe8a0');
+        R(x + 8, -26, 7, 1, c); R(x + 11, -30, 1, 8, c);
+      }
+      for (let y = 0; y < FH; y += 7) for (let x = (y / 7 % 2) * 5; x < FW; x += 10) R(x, y, 9, 6, (x + y) % 3 ? '#6a6d76' : '#5e616a');
+      // сцена с баннером
+      box(70, 2, 84, 10, 8, '#5a3a22', '#3e2616');
+      R(74, -36, 76, 18, OUTLINE);
+      R(75, -35, 74, 16, '#a8141e');
+      R(70, -40, 2, 50, '#3a3a40'); R(152, -40, 2, 50, '#3a3a40');
+    },
+    props: [[14, () => {
+      const { ox, oy } = C.view();
+      for (const [x, y, look, face] of CROWD) Actors.draw(b, Actors.DEFS[look], ox + x, oy + y, { dir: face ? 'side' : 'down', face: face || 1, f: -1, bob: Math.floor(C.st.t / 0.4 + x) % 2, blink: false });
+    }]],
+    signs: [['РАЗВИТИЕ', 112, -24, 8, '#ffd23f']],
+  };
+
+  // --- финал: все за столом, в центре банка с боссом ---
+  const final = {
+    solids: [],
+    ground() {
+      fillScreen('#1a1210');
+      for (let y = 0; y < FH; y += 6) { R(0, y, FW, 6, (y / 6) % 2 ? '#7f5233' : '#875838'); R(0, y + 5, FW, 1, '#5e3a22'); }
+      R(0, -44, FW, 44, '#f0e6d2');
+      R(0, -6, FW, 6, '#d8ccb4');
+      R(86, -38, 52, 26, OUTLINE);
+      R(87, -37, 50, 24, '#1a2a4a');
+      for (let i = 0; i < 12; i++) R(90 + (i * 17) % 44, -35 + (i * 7) % 18, 1, 1, '#ffffff');
+      R(111, -37, 2, 24, OUTLINE);
+      // гирлянда флажков
+      for (let i = 0; i < 22; i++) {
+        const x = 4 + i * 10, y = -42 + Math.round(Math.sin(i * 0.6) * 2);
+        R(x, y, 6, 1, '#3a2a22');
+        for (let k = 0; k < 4; k++) R(x + k, y + 1 + k, 6 - k * 2, 1, ['#e74c3c', '#f1c40f', '#3498db', '#2ecc71', '#9b59b6'][i % 5]);
+      }
+    },
+    props: [[74, () => {
+      box(64, 54, 96, 22, 12, '#f6f2ea', '#c8bfae');
+      for (let i = 0; i < 6; i++) R(70 + i * 15, 44 + (i % 2) * 6, 6, 3, ['#e0a030', '#c0392b', '#d35400'][i % 3]);
+      // банка с крошечным Развитием: стучит изнутри и подпрыгивает
+      const t = C.st.t, hop = Math.abs(Math.sin(t * 5)) * 4, jx = 112, jy = 60;
+      R(jx - 9, jy - 26, 18, 25, OUTLINE);
+      R(jx - 8, jy - 25, 16, 23, '#cfe8f0');
+      R(jx - 9, jy - 29, 18, 4, '#c0392b');
+      R(jx - 8, jy - 28, 16, 2, '#e05a4a');
+      const by = jy - 4 - Math.round(hop);
+      R(jx - 2, by - 3, 4, 4, '#2b2f3a');
+      disc(jx, by - 7, 4, OUTLINE);
+      disc(jx, by - 7, 3, '#f2c4a4');
+      R(jx - 2, by - 8, 1, 1, OUTLINE); R(jx + 1, by - 8, 1, 1, OUTLINE);
+      b.globalAlpha = 0.45;
+      R(jx - 6, jy - 23, 2, 18, '#ffffff');
+      b.globalAlpha = 1;
+    }]],
+    signs: [['С ДНЁМ РОЖДЕНИЯ, АРТЕМИЙ!', 112, -46, 5.5, '#c0392b']],
+  };
+
+  return { oka, food, bk, bkin, tower, pizza1, pizza2, yam, final, FW, FH, TOWER_TOP: TOP };
 };
