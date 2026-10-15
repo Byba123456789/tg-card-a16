@@ -43,12 +43,62 @@ const Sfx = (() => {
     pickup: () => { tone(660, 0.08, { vol: 0.08 }); tone(990, 0.12, { vol: 0.08, at: 0.07 }); },
     snap: () => noise(0.05, { vol: 0.4, f: 3200 }),
     pop: () => tone(500, 0.06, { type: 'square', vol: 0.04, f2: 900 }),
+    step: () => noise(0.045, { vol: 0.07, f: 320 + Math.random() * 160 }),
+    blip: f => tone(f * (0.95 + Math.random() * 0.1), 0.035, { type: 'square', vol: 0.018 }),
+    buzz: () => { tone(110, 0.28, { type: 'sawtooth', vol: 0.04 }); tone(113, 0.28, { type: 'sawtooth', vol: 0.04 }); },
+    ping: () => { tone(880, 0.08, { vol: 0.06 }); tone(1320, 0.14, { vol: 0.05, at: 0.06 }); },
+    send: () => tone(600, 0.09, { vol: 0.04, f2: 1300 }),
+    ring: () => { tone(425, 0.9, { type: 'sine', vol: 0.05 }); },
+    fail: () => { tone(950, 0.16, { type: 'sine', vol: 0.05 }); tone(1400, 0.16, { type: 'sine', vol: 0.05, at: 0.18 }); tone(1800, 0.3, { type: 'sine', vol: 0.05, at: 0.36 }); },
+    door: () => { noise(0.28, { vol: 0.14, f: 380 }); tone(170, 0.22, { type: 'square', vol: 0.025, f2: 110 }); },
+    key: () => { tone(2200, 0.05, { vol: 0.05 }); tone(2600, 0.05, { vol: 0.05, at: 0.06 }); tone(2400, 0.09, { vol: 0.05, at: 0.12 }); },
+    rope: () => { noise(0.3, { vol: 0.12, f: 1800 }); noise(0.15, { vol: 0.08, f: 900, at: 0.2 }); },
+    whoosh: () => noise(0.28, { vol: 0.1, f: 1100 }),
+    land: () => { tone(90, 0.16, { type: 'sine', vol: 0.2, f2: 50 }); noise(0.1, { vol: 0.15, f: 400 }); },
+    boing: () => tone(170, 0.45, { type: 'sine', vol: 0.16, f2: 540 }),
+    bike: () => { noise(0.9, { vol: 0.06, f: 650 }); for (let i = 0; i < 6; i++) tone(1900, 0.02, { type: 'square', vol: 0.012, at: i * 0.15 }); },
+    throw: () => { noise(0.16, { vol: 0.08, f: 1600 }); tone(300, 0.1, { vol: 0.03, f2: 520 }); },
+    whistle: () => { tone(2800, 0.22, { type: 'sine', vol: 0.06 }); tone(2900, 0.3, { type: 'sine', vol: 0.06, at: 0.27 }); },
+    charge: () => tone(110, 0.7, { type: 'sawtooth', vol: 0.05, f2: 420 }),
+    grow: () => tone(55, 1.4, { type: 'sawtooth', vol: 0.08, f2: 260 }),
+    shrink: () => tone(900, 1.7, { type: 'triangle', vol: 0.06, f2: 70 }),
+    type: () => noise(0.02, { vol: 0.07, f: 4200 }),
+    clink: () => { tone(1800, 0.3, { vol: 0.06 }); tone(2700, 0.25, { vol: 0.04, at: 0.02 }); },
+    strum: () => [196, 247, 294, 392, 494].forEach((f, i) => tone(f, 0.9, { vol: 0.05, at: i * 0.025 })),
+    crash: () => { noise(0.3, { vol: 0.28, f: 700 }); tone(160, 0.2, { type: 'square', vol: 0.05, f2: 60 }); },
+    go: () => { tone(660, 0.08, { vol: 0.06 }); tone(990, 0.16, { vol: 0.06, at: 0.08 }); },
+    win: () => [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.25, { vol: 0.07, at: i * 0.09 })),
+    lose: () => [392, 330, 262].forEach((f, i) => tone(f, 0.4, { vol: 0.07, at: i * 0.18 })),
+    tada: () => { [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, 0.4, { vol: 0.07, at: i * 0.1 })); [523, 659, 784].forEach(f => tone(f, 1.6, { vol: 0.05, at: 0.55 })); },
   };
+
+  // музыка по кругу (файлы кладёт юзер): audio/fight.mp3 — в драках; без файла — тишина
+  const tracks = {};
+  for (const name of ['fight']) fetch(`audio/${name}.mp3`).then(r => r.ok ? r.blob() : Promise.reject()).then(bl => { tracks[name] = URL.createObjectURL(bl); }).catch(() => {});
+  let bgm = null;
+  function music(name) {
+    if (bgm && bgm.name === name) return;
+    stopMusic();
+    if (!tracks[name]) return;
+    const el = new Audio(tracks[name]);
+    el.loop = true;
+    el.volume = 0.45;
+    el.play().catch(() => {});
+    bgm = { name, el };
+  }
+  function stopMusic() {
+    if (!bgm) return;
+    const el = bgm.el;
+    bgm = null;
+    const f = setInterval(() => { el.volume = Math.max(0, el.volume - 0.05); if (el.volume <= 0) { clearInterval(f); el.pause(); } }, 40);
+  }
+  document.addEventListener('visibilitychange', () => { if (bgm) document.hidden ? bgm.el.pause() : bgm.el.play().catch(() => {}); });
 
   // ульта: трек из файла, если он есть; иначе фортепианная заглушка
   let track = null;
   fetch('audio/gojo.mp3').then(r => r.ok ? r.blob() : Promise.reject()).then(bl => { track = URL.createObjectURL(bl); }).catch(() => {});
   function piano(dur) {
+    if (bgm) { bgm.el.volume = 0.1; setTimeout(() => { if (bgm) bgm.el.volume = 0.45; }, dur * 1000); }
     if (track) {
       const el = new Audio(track);
       el.volume = 0.9;
@@ -64,7 +114,7 @@ const Sfx = (() => {
       if (i % 4 === 0) tone(f / 2, 1.6, { type: 'sine', vol: 0.08, at });
     });
   }
-  return { unlock: ctx, play, piano };
+  return { unlock: ctx, play, piano, music, stopMusic };
 })();
 
 // бой в духе Isaac: волны врагов, телеграф атаки, удар гитарой, ульта-пианино
@@ -212,7 +262,7 @@ const Fight = C => {
         d.got = true;
         Sfx.play.pickup();
         if (d.kind === 'burger') { S.hp = Math.min(S.max, S.hp + 2); puff(d.x, d.y - 4, 6, ['#f5a623', '#ffffff']); }
-        else st.hasKey = true;
+        else { st.hasKey = true; Sfx.play.key(); }
       }
     }
     drops = drops.filter(d => !d.got);
@@ -308,7 +358,7 @@ const Fight = C => {
         } else if (e.t === 'ranged') {
           const ax = pl.x - e.x, ay = pl.y - e.y, ad = Math.hypot(ax, ay) || 1;
           shots.push({ x: e.x, y: e.y - 10, vx: ax / ad * 75, vy: ay / ad * 75, kind: T.proj, foe: true, dmg: T.dmg, life: 3 });
-          Sfx.play.swing();
+          Sfx.play.throw();
           e.done = true;
         } else Sfx.play.swing();
       }
@@ -377,7 +427,7 @@ const Fight = C => {
       pop(a.shout, a.x, a.y - 34);
       Sfx.play.snap();
       const tg = nearestTo(a);
-      if (a.id === 'anton' && tg) aimShot({ x: a.x, y: a.y - 14 }, tg, 170, 'bar', 3, { hit: new Set(), life: 1.5 });
+      if (a.id === 'anton' && tg) { aimShot({ x: a.x, y: a.y - 14 }, tg, 170, 'bar', 3, { hit: new Set(), life: 1.5 }); Sfx.play.throw(); }
       if (a.id === 'roma') a.claude = { x: a.x + 10, y: a.y - 20, t: 0 };
     }
     if (a.ultT > 0) { a.ultT -= dt; if (a.ultT <= 0) a.claude = null; }
@@ -472,6 +522,7 @@ const Fight = C => {
         if (kind === 'dash') e.atk.dir = { x: dx / d, y: dy / d };
         if (kind === 'pump') e.atk.at = { x: pl.x, y: pl.y };
         pop(SHOUT[kind], e.x, e.y - 52);
+        if (kind === 'summon') Sfx.play.whistle(); else Sfx.play.charge();
       }
       return;
     }

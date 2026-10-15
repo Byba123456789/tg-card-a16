@@ -209,7 +209,7 @@ main { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding
   position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 15; transform: translateX(-50%);
   display: flex; gap: 6px; padding: 6px; border-radius: 999px; background: rgba(22,25,30,.92); border: 1px solid #3a404b; backdrop-filter: blur(8px);
 }
-.tabs button { appearance: none; border: 0; padding: 11px 18px; border-radius: 999px; background: transparent; color: var(--muted); font: 800 14px/1 Manrope, sans-serif; cursor: pointer; }
+.tabs button { appearance: none; border: 0; padding: 11px clamp(7px, 2.3vw, 18px); border-radius: 999px; background: transparent; color: var(--muted); font: 800 clamp(10.5px, 3vw, 14px)/1 Manrope, sans-serif; white-space: nowrap; cursor: pointer; }
 .tabs button.on { background: var(--yellow); color: #1b1e23; }
 
 .toast { position: fixed; left: 50%; top: 20px; z-index: 40; transform: translateX(-50%); padding: 10px 16px; border-radius: 12px; background: var(--green); color: #1b1e23; font-weight: 800; }
@@ -310,8 +310,8 @@ main { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding
 <div class="reader hidden" id="reader"><div class="paper"><div class="wish"></div><div class="who"></div></div></div>
 <nav class="tabs hidden" id="tabs">
   <button data-tab="greet">Поздравления</button>
-  <button data-tab="stage2">ИГРА</button>
-  <button data-tab="story" id="tabStory" class="hidden">СЮЖЕТ</button>
+  <button data-tab="stage2">Conquer the Peak</button>
+  <button data-tab="story" id="tabStory" class="hidden">Save the Squad</button>
 </nav>
 
 <script>

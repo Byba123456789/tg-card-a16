@@ -321,17 +321,21 @@
     st.phone.typing = false;
     st.phone.msgs.push({ text, out: false });
     vib();
+    Sfx.play.ping();
     await wait(0.6);
   }
   async function outgoing(text) {
     st.phone.msgs.push({ text, out: true });
+    Sfx.play.send();
     await wait(0.7);
   }
   async function call(name) {
     st.phone = { kind: 'call', title: name, sub: 'Вызов…' };
+    Sfx.play.ring();
     await wait(1.4);
     st.phone.sub = 'Абонент недоступен';
     st.phone.fail = true;
+    Sfx.play.fail();
     vib();
     await wait(1.1);
   }
@@ -438,7 +442,7 @@
     if (m.sel) {
       const [bx, by, bw, bh] = mapBtn();
       if (x >= bx - 4 && x <= bx + bw + 4 && y >= by - 4 && y <= by + bh + 4) {
-        if (playable(m.sel)) m.pick = m.sel.id;
+        if (playable(m.sel)) { m.pick = m.sel.id; Sfx.play.go(); }
         else vib();
         return;
       }
@@ -535,6 +539,7 @@
   async function card(title, sub) {
     st.card = { title, sub };
     st.mode = 'card';
+    Sfx.play.whoosh();
     st.fade = 0;
     await tween(st, 'cardA', 1, 0.6);
     await wait(1.6);
@@ -557,6 +562,7 @@
 
   async function goTo(id, from, to, dir) {
     st.lock = true;
+    Sfx.play.door();
     await tween(st, 'fade', 1, 0.5);
     enterArena(id, from[0], from[1], dir);
     await tween(st, 'fade', 0, 0.5);
@@ -569,12 +575,15 @@
     for (;;) {
       if (!started) fight.start(retry);
       started = false;
+      Sfx.music('fight');
       st.task = 'Отбейся';
       await until(() => {
         if (st.skip) { st.skip = false; fight.skip(); }
         return fight.cleared() || fight.S.dead;
       });
-      if (!fight.S.dead) { st.task = ''; return; }
+      if (!fight.S.dead) { st.task = ''; Sfx.stopMusic(); Sfx.play.win(); return; }
+      Sfx.stopMusic();
+      Sfx.play.lose();
       st.lock = true;
       st.task = '';
       await wait(0.6);
@@ -676,7 +685,8 @@
     st.marker = null;
     st.task = '';
     st.lock = true;
-    Sfx.play.pickup();
+    Sfx.play.key();
+    Sfx.play.door();
     st.bkOpen = true;
     st.shake = 0.15;
     await wait(0.6);
@@ -695,7 +705,7 @@
     st.task = '';
     st.lock = true;
     roma.pose = null;
-    Sfx.play.hit();
+    Sfx.play.rope();
     for (let i = 0; i < 10; i++) st.parts.push({ x: roma.x, y: roma.y - 8, vx: (Math.random() - 0.5) * 100, vy: -Math.random() * 70, life: 0.5, col: ['#c8a060', '#8a6a3a'][i % 2] });
     await wait(0.5);
     await say('shock', 'Это пиздец, каким хуем я тут оказался?', 'Рома');
@@ -752,6 +762,7 @@
     st.mode = 'note';
     st.noteA = 0;
     st.fade = 0;
+    Sfx.play.rope();
     await say('normal', 'Пацаны, тут записка', who);
     await tween(st, 'noteA', 1, 0.5);
     await tap();
@@ -775,14 +786,16 @@
     st.lock = true;
     await tween(st, 'fade', 0, 0.5);
     // въезд на велике и эпичный прыжок: велик катится дальше и падает
+    Sfx.play.bike();
     await tween(pl, 'x', 64, 0.9);
     st.bike.ride = false;
     st.bike.x = pl.x;
-    Sfx.play.swing();
+    Sfx.play.whoosh();
     await Promise.all([tween(st.bike, 'x', 118, 0.7), arc(st, 'heroZ', 22, 0.7), tween(pl, 'x', 76, 0.7)]);
     st.bike.lie = true;
     st.shake = 0.25;
-    Sfx.play.slam();
+    Sfx.play.land();
+    Sfx.play.crash();
     for (const [i, a] of fight.allies().entries()) { a.x = pl.x - 22 - i * 14; a.y = pl.y + 6 + i * 4; a.dir = 'side'; a.face = 1; }
     await wait(0.3);
     st.icon = { sym: '!', t: 1 };
@@ -806,7 +819,7 @@
       await say('smirk', 'Лезь, я ща батут сделаю по фасту', helper.id === 'roma' ? 'Рома' : 'Андрей');
       helper.x = 140; helper.y = 64;
       st.tramp = [112, 62];
-      Sfx.play.pickup();
+      Sfx.play.boing();
     }
     st.task = 'Залезь на вышку';
     st.marker = [112, places.TOWER_TOP - 24];
@@ -820,15 +833,15 @@
     Object.assign(pl, { dir: 'side', face: 1 });
     await say('normal', 'Держись');
     anton.pose = null;
-    Sfx.play.hit();
+    Sfx.play.rope();
     for (let i = 0; i < 10; i++) st.parts.push({ x: anton.x, y: anton.y - 8, vx: (Math.random() - 0.5) * 100, vy: -Math.random() * 70, life: 0.5, col: ['#c8a060', '#8a6a3a'][i % 2] });
     await wait(0.5);
     if (st.tramp) {
       await say('shock', 'Прыгаем?!', 'Антон');
       await say('smirk', 'Прыгаем');
-      Sfx.play.swing();
+      Sfx.play.whoosh();
       await Promise.all([tween(pl, 'y', 60, 0.6), tween(anton, 'y', 62, 0.6), tween(pl, 'x', 108, 0.6), tween(anton, 'x', 118, 0.6)]);
-      Sfx.play.slam();
+      Sfx.play.boing();
       st.shake = 0.2;
       await Promise.all([arc(st, 'heroZ', 26, 0.7), arc(anton, 'z', 30, 0.75), tween(pl, 'y', 84, 0.7), tween(anton, 'y', 86, 0.75), tween(anton, 'x', 128, 0.75)]);
     } else {
@@ -887,7 +900,7 @@
     st.task = '';
     st.lock = true;
     andrey.pose = null;
-    Sfx.play.hit();
+    Sfx.play.rope();
     for (let i = 0; i < 10; i++) st.parts.push({ x: andrey.x, y: andrey.y - 8, vx: (Math.random() - 0.5) * 100, vy: -Math.random() * 70, life: 0.5, col: ['#c8a060', '#8a6a3a'][i % 2] });
     await wait(0.5);
     await say('normal', 'бля пацаны, наконец то', 'Андрей');
@@ -922,6 +935,7 @@
     st.lock = false;
     fight.engage();
     st.task = 'Победи Развитие';
+    Sfx.music('fight');
     for (;;) {
       await until(() => {
         if (st.skip) { st.skip = false; fight.skip(); }
@@ -932,6 +946,7 @@
       hp = Math.max(Math.ceil(BOSS_HP * 0.3), fight.boss().hp);
       st.lock = true;
       st.task = '';
+      Sfx.play.lose();
       await wait(0.6);
       await tween(st, 'fade', 1, 0.6);
       st.deadMsg = true;
@@ -952,6 +967,8 @@
     fight.skip();
     bs.scale = 1;
     fight.pop('СВЕРХРАЗВИТИЕ!', bs.x, bs.y - 60);
+    Sfx.stopMusic();
+    Sfx.play.grow();
     await Promise.all([tween(bs, 'head', 30, 1.4), tween(bs, 'x', 112, 1.4), tween(bs, 'y', 50, 1.4)]);
     st.shake = 0.5;
     Sfx.play.slam();
@@ -980,9 +997,10 @@
     Sfx.piano(3);
     await wait(1);
     bs.atk = null;
+    Sfx.play.shrink();
     await Promise.all([tween(bs, 'scale', 0.18, 1.8), tween(bs, 'head', 13, 1.8)]);
     st.jar = { x: bs.x, y: bs.y };
-    Sfx.play.clap();
+    Sfx.play.clink();
     st.shake = 0.2;
     await tween(st, 'code', 0, 0.5);
     st.laptop = null;
@@ -1009,6 +1027,7 @@
     st.done.yam = 1;
     saveDone();
     st.credits = 0;
+    Sfx.play.tada();
     await tween(st, 'credits', 1, 1.2);
     await wait(1.5);
     await tap();
@@ -1041,6 +1060,7 @@
   const DIRS = { down: Math.PI / 2, up: -Math.PI / 2 };
   const baseAngle = () => pl.dir === 'side' ? (pl.face > 0 ? 0 : Math.PI) : DIRS[pl.dir];
 
+  const VOICE = { 'Артемий': 300, 'Рома': 410, 'Антон': 360, 'Андрей': 380, 'Пацан': 250, 'Жирный': 190, 'Спасатель': 280, 'Развитие': 150 };
   function attack() {
     if (st.swing > 0) return;
     // автонаводка: в бою разворачиваемся к ближайшему врагу
@@ -1050,8 +1070,8 @@
         const dx = e.x - pl.x, dy = e.y - pl.y;
         if (Math.abs(dx) > Math.abs(dy)) { pl.dir = 'side'; pl.face = dx > 0 ? 1 : -1; } else pl.dir = dy < 0 ? 'up' : 'down';
       }
-      Sfx.play.swing();
     }
+    Sfx.play.swing();
     st.swing = 0.27;
     st.hit = false;
     st.swingId++;
@@ -1065,7 +1085,15 @@
     pl.blink = Math.max(0, pl.blink - dt);
     if (st.stop > 0) { st.stop -= dt; return; }
     runJobs(dt);
-    if (dlg) dlg.shown = Math.min(dlg.text.length, dlg.shown + dt * 30);
+    if (dlg) {
+      const was = Math.floor(dlg.shown);
+      dlg.shown = Math.min(dlg.text.length, dlg.shown + dt * 30);
+      const now = Math.floor(dlg.shown);
+      if (now !== was && now % 2 === 0 && /[^\s.,!?…]/.test(dlg.text[now - 1] || '')) Sfx.play.blip(VOICE[dlg.who] || 300);
+    }
+    // телефон вибрирует, ноутбук стучит клавишами
+    if (st.mode === 'wake' && st.wake.buzz && Math.floor(st.t / 0.6) !== Math.floor((st.t - dt) / 0.6)) Sfx.play.buzz();
+    if (st.laptop && st.code > 0.5 && Math.floor(st.t / 0.07) !== Math.floor((st.t - dt) / 0.07)) Sfx.play.type();
     if (st.icon && (st.icon.t -= dt) <= 0) st.icon = null;
     st.shake = Math.max(0, st.shake - dt);
     st.hurtFlash = Math.max(0, st.hurtFlash - dt);
@@ -1081,6 +1109,7 @@
       if (st.mode === 'room' && !st.hit && st.swing < 0.17 && st.box && Math.hypot(tx - (BOX[0] + 7), ty - (BOX[1] + 2)) < 16) {
         st.hit = true;
         st.box = false;
+        Sfx.play.crash();
         st.stop = 0.08;
         st.shake = 0.2;
         vib();
@@ -1109,7 +1138,9 @@
     pl.moving = !!(vx || vy);
     if (!pl.moving) { pl.walkT = 0; return; }
     if (!free) moved = true;
+    const stepWas = Math.floor(pl.walkT / 0.23);
     pl.walkT += dt;
+    if (Math.floor(pl.walkT / 0.23) !== stepWas) Sfx.play.step();
     if (Math.abs(vx) > Math.abs(vy) * 1.1) { pl.dir = 'side'; pl.face = vx > 0 ? 1 : -1; } else pl.dir = vy < 0 ? 'up' : 'down';
     const nx = pl.x + vx * SPEED * dt, ny = pl.y + vy * SPEED * dt;
     if (blocked(pl.x, pl.y)) free = true;
@@ -1692,7 +1723,7 @@
     if (el.requestFullscreen) el.requestFullscreen().then(() => screen.orientation.lock('landscape')).catch(() => {});
   }
 
-  const takeGuitar = () => { st.hasGuitar = true; vib(); };
+  const takeGuitar = () => { st.hasGuitar = true; vib(); Sfx.play.strum(); };
 
   function onDown(e) {
     if (e.pointerType === 'touch') goFull();
