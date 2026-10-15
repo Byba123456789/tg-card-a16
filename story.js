@@ -1,75 +1,6 @@
 (() => {
   const COL = { ...Char.PAL, N: '#3a2418', g: '#5a3a22', O: '#d9822b', o: '#a85a1c', Y: '#f2b25a' };
   const OUTLINE = COL.k;
-  const HEAD_D = [
-    '...hhhhhh...',
-    '.hhhHHHHhhh.',
-    'hhHHHHHHHHHh',
-    'HHHdHHHHdHHH',
-    'HdHHHdHHHHdH',
-    'HHSdHHHdHdSH',
-    'HSSSSdSSSSSH',
-    'HSwESSSSwESH',
-    'HSwESSSSwESH',
-    '.SrSSSSSSrS.',
-    '..SSSmmSSS..',
-    '...SSSSSS...',
-  ];
-  const HEAD_U = [
-    '...hhhhhh...',
-    '.hhhhhhhhhh.',
-    'hhhhHhhHhhhh',
-    'hHHhHHhHHhHh',
-    'HHHHHHHHHHHH',
-    'HHdHHHHHHdHH',
-    'HHdHHdHdHHdH',
-    'HdHHHdHdHHdH',
-    'SdHHHdHdHHHS',
-    'SHHdHHHHdHHS',
-    '.dHHHdHdHHd.',
-    '..dHdHHdHd..',
-  ];
-  const HEAD_S = [
-    '...hhhhhh...',
-    '..hhHHHHhhh.',
-    '.hHHHHHHHHHh',
-    'hHHHHHHHHHHH',
-    'HHHdHHHHHdHH',
-    'HHdHHHHSdHSH',
-    'HHHdHHSSSSSS',
-    'HHdHHSSSSwES',
-    'HHHHHSSSSwES',
-    '.HdHSSSSrSSS',
-    '..HdSSSSSmS.',
-    '...SSSSSSS..',
-  ];
-  const BODY_D = [
-    '.jjJWWJJq.',
-    'jjJJBBJJJq',
-    'jjJJWWJJJq',
-    'jjJJWxJJJq',
-    'jjJJWWJJJq',
-    'qqJJxWJJqq',
-    '.qqqWWqqq.',
-  ];
-  const BODY_U = [
-    '.jjJJJJJq.',
-    'jjJJJJJJJq',
-    'jjJJJJJJJq',
-    'jjJJJqJJJq',
-    'jjJJJqJJJq',
-    'qqJJJqJJqq',
-    '.qqqq.qqq.',
-  ];
-  const BODY_S = [
-    '.jJJJJq.',
-    'jJJJJWWq',
-    'jJJJJBWq',
-    'jJJJJWWq',
-    'jJJJJJWq',
-    'qJJJJJqq',
-    '.qqqqqq.',
-  ];
   const GUITAR = [
     '...kkk...',
     '..kNNNk..',
@@ -94,10 +25,6 @@
     '.koooook.',
     '..kkkkk..',
   ];
-  // моргание: глаза закрыты
-  const blinkD = HEAD_D.map((r, i) => i === 7 ? 'HSSSSSSSSSSH' : i === 8 ? 'HSssSSSSssSH' : r);
-  const blinkS = HEAD_S.map((r, i) => i === 7 ? r.replace('wE', 'SS') : i === 8 ? r.replace('wE', 'ss') : r);
-
   function sprite(rows) {
     const c = document.createElement('canvas');
     c.width = rows[0].length;
@@ -110,10 +37,7 @@
     }));
     return c;
   }
-  const SPR = {
-    headD: sprite(HEAD_D), headDb: sprite(blinkD), headU: sprite(HEAD_U), headS: sprite(HEAD_S), headSb: sprite(blinkS),
-    bodyD: sprite(BODY_D), bodyU: sprite(BODY_U), bodyS: sprite(BODY_S), guitar: sprite(GUITAR),
-  };
+  const SPR = { guitar: sprite(GUITAR) };
 
   // комната: пол FW×FH, задняя стена высотой WH, толщина стен WT; координаты — от левого верхнего угла пола
   const FW = 224, FH = 124, WH = 36, WT = 5;
@@ -126,11 +50,6 @@
 
   const cv = document.getElementById('cv'), g = cv.getContext('2d');
   const buf = document.createElement('canvas'), b = buf.getContext('2d');
-  const CW = 18, CH = 28, FX = 9, FY = 26;
-  const cc = document.createElement('canvas'), cx = cc.getContext('2d');
-  const sil = document.createElement('canvas'), sx = sil.getContext('2d');
-  cc.width = sil.width = CW;
-  cc.height = sil.height = CH;
   let W = 0, H = 0, scale = 2, ox = 0, oy = 0, last = 0, moved = false;
   const pl = { x: 120, y: 84, dir: 'down', face: 1, moving: false, walkT: 0, t: 0, blinkT: 2, blink: 0 };
   const keys = new Set();
@@ -282,67 +201,15 @@
     b.drawImage(SPR.guitar, ox + x, oy + y - GUITAR.length);
   }
 
-  // персонаж собирается в маленький холст, обводка — силуэтом по 4 сторонам
-  function renderChar() {
-    cx.clearRect(0, 0, CW, CH);
-    const side = pl.dir === 'side', up = pl.dir === 'up';
-    const f = pl.moving ? Math.floor(pl.walkT / 0.115) % 4 : 0;
+  function drawPlayer() {
+    if (st.mode === 'arena' && fight.S.inv > 0 && Math.floor(st.t / 0.08) % 2) return;
+    const f = pl.moving ? Math.floor(pl.walkT / 0.115) % 4 : -1;
     const bob = pl.moving ? (f % 2 ? -1 : 0) : (Math.floor(pl.t / 0.55) % 2);
-    const by = FY - 10 + bob;
-    const leg = (x, lift, dark) => {
-      cx.fillStyle = dark ? COL.L : COL.P;
-      cx.fillRect(x, FY - 4, 3, 3 - lift);
-      cx.fillStyle = COL.p;
-      if (!dark) cx.fillRect(x, FY - 4, 1, 3 - lift);
-      cx.fillStyle = COL.B;
-      cx.fillRect(x, FY - 1 - lift, side ? 4 : 3, 1);
-    };
-    const arm = (x, y) => {
-      cx.fillStyle = COL.J;
-      cx.fillRect(x, y, 2, 4);
-      cx.fillStyle = COL.q;
-      cx.fillRect(x, y + 3, 2, 1);
-      cx.fillStyle = COL.S;
-      cx.fillRect(x, y + 4, 2, 2);
-    };
-    if (side) {
-      const s = f === 1 ? 1 : f === 3 ? -1 : 0;
-      leg(FX - 2 - s, f === 3 ? 1 : 0, true);
-      leg(FX - 2 + s, f === 1 ? 1 : 0, false);
-      cx.drawImage(SPR.bodyS, FX - 4, by);
-      cx.drawImage(pl.blink ? SPR.headSb : SPR.headS, FX - 6, by - 11);
-      arm(FX - 1 + s, by + 1);
-    } else {
-      leg(FX - 4, f === 1 ? 1 : 0, false);
-      leg(FX + 1, f === 3 ? 1 : 0, false);
-      const sw = f === 1 ? 1 : f === 3 ? -1 : 0;
-      arm(FX - 7, by + 1 - sw);
-      arm(FX + 5, by + 1 + sw);
-      cx.drawImage(up ? SPR.bodyU : SPR.bodyD, FX - 5, by);
-      cx.drawImage(up ? SPR.headU : pl.blink ? SPR.headDb : SPR.headD, FX - 6, by - 11);
-    }
-    sx.clearRect(0, 0, CW, CH);
-    sx.globalCompositeOperation = 'source-over';
-    sx.drawImage(cc, 0, 0);
-    sx.globalCompositeOperation = 'source-in';
-    sx.fillStyle = OUTLINE;
-    sx.fillRect(0, 0, CW, CH);
+    Actors.draw(b, Actors.DEFS.artemiy, ox + pl.x, oy + pl.y, { dir: pl.dir, face: pl.face, f, bob, blink: pl.blink > 0, pose: st.heroPose });
   }
 
-  function drawPlayer() {
-    b.globalAlpha = 0.3;
-    R(pl.x - 4, pl.y - 1, 8, 1, '#000');
-    R(pl.x - 5, pl.y, 10, 1, '#000');
-    R(pl.x - 4, pl.y + 1, 8, 1, '#000');
-    b.globalAlpha = 1;
-    renderChar();
-    const px = ox + Math.round(pl.x) - FX, py = oy + Math.round(pl.y) - FY;
-    const flip = pl.dir === 'side' && pl.face < 0;
-    b.save();
-    if (flip) { b.translate(px * 2 + CW, 0); b.scale(-1, 1); }
-    for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) b.drawImage(sil, px + ax, py + ay);
-    b.drawImage(cc, px, py);
-    b.restore();
+  function drawNpc(n) {
+    Actors.draw(b, Actors.DEFS[n.def], ox + n.x, oy + n.y, { dir: n.dir, face: n.face, f: -1, bob: Math.floor(st.t / 0.6) % 2, blink: false, pose: n.pose });
   }
 
   function drawJoy() {
@@ -372,7 +239,9 @@
 
   const BOX = [100, 62, 14, 10];
   const GUITAR_AT = [FW - 21, 52];
-  const solids = () => [...SOLIDS, ...(st.hasGuitar ? [] : [[FW - 25, 46, 9, 6]]), ...(st.box ? [BOX] : [])];
+  const solids = () => st.mode === 'arena'
+    ? [...places[st.place].solids, ...st.npcs.map(n => [n.x - 5, n.y - 3, 10, 4])]
+    : [...SOLIDS, ...(st.hasGuitar ? [] : [[FW - 25, 46, 9, 6]]), ...(st.box ? [BOX] : [])];
   const blocked = (x, y) => x < 5 || x > FW - 5 || y < 4 || y > FH - 1 ||
     solids().some(([sx0, sy0, w, d]) => x + 4 > sx0 && x - 4 < sx0 + w && y + 1 > sy0 && y - 3 < sy0 + d);
 
@@ -380,6 +249,8 @@
     mode: 'title', t: 0, fade: 0, dateA: 0, task: '', marker: null, icon: null, lock: false,
     hasGuitar: false, box: true, swing: 0, hit: false, stop: 0, shake: 0, parts: [], phone: null,
     wake: { lids: 0, blur: 1, rot: 0, hand: 0, lift: 0, buzz: false },
+    place: null, hasKey: false, bkOpen: false, auto: null, npcs: [], card: null, cardA: 0, hurtFlash: 0, ultFlash: 0,
+    swingId: 0, map: null, done: {}, pop: null, heroPose: null, untie: null, deadMsg: false,
   };
   let dlg = null, tapWait = null;
 
@@ -413,6 +284,26 @@
     else if (navigator.vibrate) navigator.vibrate(60);
   }
 
+  const view = () => ({ W, H, ox, oy });
+  const C = { st, pl, R, box, disc, b, OUTLINE, vib, view, blocked: (x, y) => blocked(x, y) };
+  const places = Places(C);
+  const fight = Fight(C);
+
+  // прогресс сюжета: Telegram CloudStorage, вне Телеги — localStorage; ?reset — начать заново
+  const TG = window.Telegram && Telegram.WebApp;
+  const cloud = TG && TG.initData && TG.isVersionAtLeast('6.9') ? TG.CloudStorage : null;
+  const parseDone = v => { try { return JSON.parse(v || '{}') || {}; } catch { return {}; } };
+  function saveDone() {
+    const v = JSON.stringify(st.done);
+    if (cloud) cloud.setItem('story', v);
+    else try { localStorage.setItem('bday_story', v); } catch {}
+  }
+  function loadDone() {
+    if (/[?&]reset/.test(location.search)) { st.done = {}; saveDone(); return Promise.resolve({}); }
+    if (cloud) return new Promise(r => cloud.getItem('story', (e, v) => r(parseDone(e ? '' : v))));
+    try { return Promise.resolve(parseDone(localStorage.getItem('bday_story'))); } catch { return Promise.resolve({}); }
+  }
+
   // телефон: чат или звонок; экран рисуется поверх в полном разрешении
   const PHW = 104;
   const PX = () => W - PHW - 8;
@@ -444,7 +335,6 @@
   }
 
   async function quest1() {
-    await tap();
     st.mode = 'date';
     await tween(st, 'dateA', 1, 0.8);
     await wait(1.2);
@@ -507,20 +397,363 @@
     st.marker = null;
     st.lock = true;
     await say('normal', 'Ладно, погнали');
-    await tween(st, 'fade', 1, 0.8);
-    st.mode = 'end';
-    await tween(st, 'fade', 0, 0.6);
+    st.lock = false;
+    st.done.q1 = 1;
+    saveDone();
   }
 
-  const nearGuitar = () => !st.hasGuitar && Math.hypot(pl.x - GUITAR_AT[0], pl.y - GUITAR_AT[1]) < 20;
-  const BTN = { atk: () => [W - 32, H - 32, 17], act: () => [W - 30, H - 76, 12] };
+  // ---------- карта ----------
+  const PINS = [
+    { id: 'home', name: 'Дом', sub: 'Колпино. Тут всё началось', at: [0.55, 0.68], home: true },
+    { id: 'oka', name: 'ОКА', sub: '«там, куда вы вечно катались»', at: [0.67, 0.48], save: 'roma' },
+    { id: 'fnaf', name: 'Квест ФНАФ', sub: '«там, где вы обосрались, держа дверь»', at: [0.37, 0.2], save: 'andrey' },
+    { id: 'tower', name: 'Вышка', sub: '«туда лезли все, кроме Андрея»', at: [0.16, 0.6], save: 'anton' },
+    { id: 'yam', name: '???', sub: 'Сначала спаси всех', at: [0.87, 0.8], locked: true },
+  ];
+  const playable = p => p.id === 'oka' && !st.done.roma;
+  const pinXY = p => [Math.round(p.at[0] * W), Math.round(22 + p.at[1] * (H - 40))];
+  const mapCard = () => { const cw = Math.min(230, W - 20); return [Math.round(W / 2 - cw / 2), H - 46, cw, 40]; };
+  const mapBtn = () => { const [x, y, w] = mapCard(); return [x + w - 60, y + 22, 52, 13]; };
+
+  async function openMap() {
+    await tween(st, 'fade', 1, 0.5);
+    st.mode = 'map';
+    st.task = '';
+    st.marker = null;
+    st.map = { sel: null, pick: null };
+    await tween(st, 'fade', 0, 0.5);
+    await until(() => st.map.pick);
+    await tween(st, 'fade', 1, 0.6);
+    return st.map.pick;
+  }
+
+  function mapTap(x, y) {
+    const m = st.map;
+    if (m.sel) {
+      const [bx, by, bw, bh] = mapBtn();
+      if (x >= bx - 4 && x <= bx + bw + 4 && y >= by - 4 && y <= by + bh + 4) {
+        if (playable(m.sel)) m.pick = m.sel.id;
+        else vib();
+        return;
+      }
+    }
+    for (const q of PINS) {
+      const [px, py] = pinXY(q);
+      if (Math.hypot(x - px, y - py + 9) < 15) { m.sel = q; Sfx.play.pop(); return; }
+    }
+    if (y < mapCard()[1]) m.sel = null;
+  }
+
+  function line(x0, y0, x1, y1, w, col) {
+    b.fillStyle = col;
+    const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0)) || 1;
+    for (let i = 0; i <= n; i++) b.fillRect(Math.round(x0 + (x1 - x0) * i / n - w / 2), Math.round(y0 + (y1 - y0) * i / n - w / 2), w, w);
+  }
+  const MP = (fx, fy) => [fx * W, 22 + fy * (H - 40)];
+  function path(pts, w, col) { for (let i = 1; i < pts.length; i++) line(...MP(...pts[i - 1]), ...MP(...pts[i]), w, col); }
+
+  function drawMap() {
+    b.fillStyle = '#1b2029';
+    b.fillRect(0, 0, W, H);
+    b.fillStyle = '#222836';
+    for (let y = 12, r = 0; y < H; y += 17, r++) for (let x = (r % 2) * 12 - 12; x < W; x += 25) b.fillRect(x + 2, y + 2, 20, 13);
+    for (const [fx, fy, r] of [[0.08, 0.32, 16], [0.46, 0.44, 11], [0.76, 0.24, 13], [0.3, 0.82, 12], [0.62, 0.86, 9]]) disc(...MP(fx, fy), r, '#1f3a2b');
+    path([[0, 0.06], [0.3, 0.02], [0.55, 0.05], [0.8, 0.0], [1, 0.04]], 8, '#1f4b73');
+    path([[0.5, 1.1], [0.53, 0.84], [0.6, 0.6], [0.63, 0.36], [0.62, 0.05]], 4, '#1f4b73');
+    path([[0, 0.45], [0.3, 0.5], [0.55, 0.68], [0.87, 0.8], [1, 0.86]], 2, '#3b4558');
+    path([[0.37, 0.2], [0.45, 0.42], [0.55, 0.68]], 3, '#56627a');
+    path([[0.16, 0.6], [0.35, 0.64], [0.55, 0.68]], 3, '#56627a');
+    path([[0.55, 0.68], [0.67, 0.48]], 3, '#56627a');
+    path([[0.1, 0.0], [0.37, 0.2], [0.75, 0.15], [1, 0.25]], 2, '#3b4558');
+    path([[0.16, 0.6], [0.2, 1.1]], 2, '#3b4558');
+    const sel = st.map.sel;
+    if (sel && !sel.home) {
+      const [x0, y0] = pinXY(PINS[0]), [x1, y1] = pinXY(sel), n = Math.hypot(x1 - x0, y1 - y0) / 4;
+      b.fillStyle = '#7fd0ff';
+      for (let i = 0; i < n; i += 2) {
+        const k = (i + (st.t * 3) % 2) / n;
+        if (k <= 1) b.fillRect(Math.round(x0 + (x1 - x0) * k) - 1, Math.round(y0 + (y1 - y0) * k) - 1, 2, 2);
+      }
+    }
+    for (const q of PINS) {
+      const [x, y] = pinXY(q), on = sel === q, bob = on ? Math.round(Math.sin(st.t * 6)) : 0;
+      const col = q.home ? '#4a90e2' : q.locked ? '#6c7883' : st.done[q.save] ? '#2ecc71' : '#f0a020';
+      b.globalAlpha = 0.35;
+      b.fillStyle = '#000';
+      b.fillRect(x - 3, y, 7, 1);
+      b.globalAlpha = 1;
+      const top = y - 10 + bob;
+      for (let i = 0; i < 6; i++) { b.fillStyle = OUTLINE; b.fillRect(x - 3 + Math.floor(i / 2), top + 4 + i, 7 - Math.floor(i / 2) * 2, 1); }
+      disc(x, top, on ? 7 : 6, OUTLINE);
+      disc(x, top, on ? 6 : 5, col);
+      for (let i = 0; i < 5; i++) { b.fillStyle = col; b.fillRect(x - 2 + Math.floor(i / 2), top + 4 + i, 5 - Math.floor(i / 2) * 2, 1); }
+      disc(x, top, 2, '#ffffff');
+    }
+  }
+
+  function drawMapUI() {
+    rect(0, 0, W, 14, '#151a22');
+    text('Карты', 8, 10, 6.5, '#ffffff', 'left', 900);
+    rr(44, 2.5, W - 120, 9, 4, '#232a36');
+    text('Куда едем?', 50, 8.8, 5.2, '#7d8b99', 'left', 600);
+    const saved = ['roma', 'andrey', 'anton'].filter(k => st.done[k]).length;
+    text(`Спасены: ${saved}/3`, W - 8, 9.5, 6, '#7bd389', 'right', 900);
+    for (const q of PINS) {
+      const [x, y] = pinXY(q);
+      g.font = `800 ${5.5 * scale}px ${FONT}`;
+      const tw = g.measureText(q.name).width / scale + 8;
+      rr(x - tw / 2, y + 3, tw, 9, 3, 'rgba(15,18,24,.85)');
+      text(q.name + (st.done[q.save] ? ' ✓' : ''), x, y + 9.7, 5.5, st.done[q.save] ? '#7bd389' : '#ffffff', 'center', 800);
+    }
+    const p = st.map.sel;
+    if (!p) {
+      const hint = st.done.roma ? 'Продолжение следует…' : 'Выбери точку на карте';
+      text(hint, W / 2, H - 8, 6.5, 'rgba(255,255,255,.85)', 'center', 800);
+      return;
+    }
+    const [cx, cy, cw, ch] = mapCard();
+    rr(cx, cy, cw, ch, 6, 'rgba(21,26,34,.95)');
+    text(p.name, cx + 8, cy + 12, 8, '#ffffff', 'left', 900);
+    text(p.sub, cx + 8, cy + 22, 5.5, '#c8d6e5', 'left', 600);
+    if (p.home) return;
+    const [bx, by, bw, bh] = mapBtn();
+    const done = st.done[p.save], go = playable(p);
+    rr(bx, by, bw, bh, 4, go ? '#f0a020' : done ? '#1f5a3a' : '#2c3442');
+    text(go ? 'Поехали' : done ? 'Пройдено ✓' : p.locked ? 'Закрыто' : 'Скоро', bx + bw / 2, by + 9, 6, go ? '#1a1620' : '#c8d6e5', 'center', 900);
+    if (!go && !done && !p.locked && !st.done.roma) text('Сначала ОКА', cx + 8, cy + 32, 5, '#7d8b99', 'left', 600);
+  }
+
+  // ---------- квест «Рома»: ОКА ----------
+  const PID = { 'Артемий': 'artemiy', 'Рома': 'roma', 'Пацан': 'gop', 'Жирный': 'fat' };
+  const DOOR = [FW / 2, -2];
+
+  async function card(title, sub) {
+    st.card = { title, sub };
+    st.mode = 'card';
+    st.fade = 0;
+    await tween(st, 'cardA', 1, 0.6);
+    await wait(1.6);
+    await tween(st, 'cardA', 0, 0.5);
+    st.fade = 1;
+  }
+
+  function enterArena(id, x, y, dir = 'up') {
+    st.mode = 'arena';
+    st.place = id;
+    Object.assign(pl, { x, y, dir, face: 1, kbt: 0 });
+    st.npcs = [];
+    st.marker = null;
+    st.task = '';
+    fight.start([]);
+  }
+  const walkTo = (x, y) => { st.auto = [x, y]; return until(() => !st.auto); };
+
+  async function goTo(id, from, to, dir) {
+    st.lock = true;
+    await tween(st, 'fade', 1, 0.5);
+    enterArena(id, from[0], from[1], dir);
+    await tween(st, 'fade', 0, 0.5);
+    await walkTo(...to);
+    st.lock = false;
+  }
+
+  // драка до победы; при смерти — затемнение и та же драка заново с полными сердцами
+  async function brawl(retry, from, started) {
+    for (;;) {
+      if (!started) fight.start(retry);
+      started = false;
+      st.task = 'Отбейся';
+      await until(() => fight.cleared() || fight.S.dead);
+      if (!fight.S.dead) { st.task = ''; return; }
+      st.lock = true;
+      st.task = '';
+      await wait(0.6);
+      await tween(st, 'fade', 1, 0.6);
+      st.deadMsg = true;
+      await wait(1.3);
+      st.deadMsg = false;
+      Object.assign(pl, { x: from[0], y: from[1], dir: 'up', kbt: 0 });
+      st.lock = false;
+      await tween(st, 'fade', 0, 0.5);
+    }
+  }
+
+  const R_ = (look, at, to, more = {}) => ({ t: 'runner', look, at, to, ...more });
+  const STK = (look, at, to, more = {}) => ({ t: 'stick', look, at, to, ...more });
+  const FAT = (at, to, more = {}) => ({ t: 'fat', look: 'fat', at, to, ...more });
+
+  async function questRoma() {
+    st.hasKey = false;
+    st.bkOpen = false;
+    st.untie = null;
+    await card('ОКА', 'Колпино · там, куда вы вечно катались');
+    enterArena('oka', 112, FH + 10);
+    st.lock = true;
+    await tween(st, 'fade', 0, 0.7);
+    await walkTo(112, 96);
+    // пацан выходит из ОКА и идёт навстречу
+    fight.start([[R_('gop', DOOR, [112, 62])], [STK('gop2', [-10, 60], [30, 60]), R_('gop3', [FW + 10, 60], [190, 60])]], { calm: true });
+    await until(() => fight.arrived());
+    st.icon = { sym: '!', t: 0.8 };
+    await wait(0.5);
+    await say('angry', 'Это ты меня на хуй послал?', 'Пацан');
+    await say('shock', 'Нет, когда такое было');
+    await say('angry', 'Да вот когда мы из школы выходили. Ты будешь извиняться?', 'Пацан');
+    await say('normal', '…');
+    await say('smirk', 'Ща, я позову кентов', 'Пацан');
+    fight.spawn(FAT(DOOR, [112, 44]));
+    fight.spawn(R_('gop2', DOOR, [80, 54]));
+    fight.spawn(R_('gop3', DOOR, [146, 54]));
+    await until(() => fight.arrived());
+    await say('facepalm', 'Ну пиздец');
+    st.lock = false;
+    fight.engage();
+    await brawl([[R_('gop', DOOR, [112, 60]), FAT(DOOR, [112, 44]), R_('gop2', DOOR, [80, 54]), R_('gop3', DOOR, [146, 54])],
+      [STK('gop2', [-10, 60], [30, 60]), R_('gop3', [FW + 10, 60], [190, 60])]], [112, 96], true);
+    await wait(0.4);
+    await say('think', 'Ромы тут нет. Значит, внутри');
+    st.task = 'Зайди в ОКА';
+    st.marker = [112, -24];
+    await until(() => pl.y < 9 && Math.abs(pl.x - 112) < 14);
+    st.marker = null;
+
+    // фудкорт
+    await goTo('food', [-10, 70], [26, 70], 'side');
+    fight.start([[R_('gop', [FW + 10, 70], [176, 58]), R_('gop3', [FW + 10, 72], [186, 86]), STK('gop2', [FW + 10, 70], [160, 72])],
+      [STK('gop', [FW + 10, 64], [170, 64]), R_('gop2', [FW + 10, 76], [180, 80]), R_('gop3', [-10, 64], [20, 64]), STK('gop3', [-10, 74], [24, 100])],
+      [FAT([FW + 10, 70], [170, 70]), R_('gop', [-10, 70], [24, 60]), R_('gop2', [FW + 10, 70], [190, 100])]], { calm: true });
+    await until(() => fight.arrived());
+    await say('angry', 'Да сколько вас');
+    fight.engage();
+    await brawl([
+      [R_('gop', [FW + 10, 70], [176, 58]), R_('gop3', [FW + 10, 72], [186, 86]), STK('gop2', [FW + 10, 70], [160, 72])],
+      [STK('gop', [FW + 10, 64], [170, 64]), R_('gop2', [FW + 10, 76], [180, 80]), R_('gop3', [-10, 64], [20, 64]), STK('gop3', [-10, 74], [24, 100])],
+      [FAT([FW + 10, 70], [170, 70]), R_('gop', [-10, 70], [24, 60]), R_('gop2', [FW + 10, 70], [190, 100])],
+    ], [26, 70], true);
+    await wait(0.4);
+    await say('think', 'Так… а Бургер Кинг дальше');
+    st.task = 'Иди дальше';
+    st.marker = [FW - 10, 54];
+    await until(() => pl.x > FW - 9 && pl.y > 48 && pl.y < 94);
+    st.marker = null;
+
+    // перед Бургер Кингом
+    await goTo('bk', [-10, 70], [30, 70], 'side');
+    st.task = 'Подойди к Бургер Кингу';
+    st.marker = [112, -32];
+    await until(() => pl.y < 30 && Math.abs(pl.x - 112) < 30);
+    st.marker = null;
+    st.task = '';
+    st.icon = { sym: '?', t: 1 };
+    await say('think', 'Закрыто. На цепи');
+    fight.start([[FAT([FW + 10, 60], [180, 64], { key: true, hp: 12 }), STK('gop', [-10, 60], [30, 60]), R_('gop3', [-10, 90], [40, 92])],
+      [R_('gop2', [FW + 10, 90], [190, 92]), STK('gop3', [-10, 70], [24, 70])]], { calm: true });
+    await until(() => fight.arrived());
+    await say('smirk', 'Ключ, значит, у жирного');
+    await say('angry', 'Попробуй забери', 'Жирный');
+    fight.engage();
+    await brawl([
+      [FAT([FW + 10, 60], [180, 64], { key: true, hp: 12 }), STK('gop', [-10, 60], [30, 60]), R_('gop3', [-10, 90], [40, 92])],
+      [R_('gop2', [FW + 10, 90], [190, 92]), STK('gop3', [-10, 70], [24, 70])],
+    ], [112, 60], true);
+    if (!st.hasKey) {
+      st.task = 'Подбери ключ';
+      await until(() => st.hasKey);
+    }
+    st.task = 'Открой дверь';
+    st.marker = [112, -32];
+    await until(() => pl.y < 9 && Math.abs(pl.x - 112) < 14);
+    st.marker = null;
+    st.task = '';
+    st.lock = true;
+    Sfx.play.pickup();
+    st.bkOpen = true;
+    st.shake = 0.15;
+    await wait(0.6);
+
+    // внутри: Рома связан на стуле
+    await tween(st, 'fade', 1, 0.5);
+    enterArena('bkin', 112, FH + 10);
+    const roma = { def: 'roma', x: 112, y: 40, dir: 'down', face: 1, pose: 'tied' };
+    st.npcs = [roma];
+    await tween(st, 'fade', 0, 0.5);
+    await walkTo(112, 92);
+    st.lock = false;
+    st.task = 'Развяжи Рому';
+    st.untie = { x: roma.x, y: roma.y + 8, done: false };
+    await until(() => st.untie.done);
+    st.task = '';
+    st.lock = true;
+    roma.pose = null;
+    Sfx.play.hit();
+    for (let i = 0; i < 10; i++) st.parts.push({ x: roma.x, y: roma.y - 8, vx: (Math.random() - 0.5) * 100, vy: -Math.random() * 70, life: 0.5, col: ['#c8a060', '#8a6a3a'][i % 2] });
+    await wait(0.5);
+    await say('shock', 'Это пиздец, каким хуем я тут оказался?', 'Рома');
+    await say('normal', 'Не знаю. Мне просто какой-то олух написал, что вас всех поймали и держат где-то');
+    await say('smirk', 'Погнали спасать пацанов');
+    // братское рукопожатие с хлопком
+    await walkTo(roma.x - 16, roma.y);
+    Object.assign(pl, { dir: 'side', face: 1 });
+    Object.assign(roma, { dir: 'side', face: -1 });
+    await wait(0.4);
+    st.heroPose = roma.pose = 'windup';
+    await wait(0.35);
+    st.heroPose = roma.pose = 'punch';
+    Sfx.play.clap();
+    st.shake = 0.35;
+    st.stop = 0.08;
+    vib();
+    for (let i = 0; i < 12; i++) st.parts.push({ x: roma.x - 8, y: roma.y - 12, vx: (Math.random() - 0.5) * 140, vy: -Math.random() * 90, life: 0.4, col: '#ffffff' });
+    st.pop = { text: 'ХЛОП!', x: roma.x - 8, y: roma.y - 34, t: 0.9 };
+    await wait(0.9);
+    st.heroPose = roma.pose = null;
+    await say('smirk', 'Ну всё, пошли', 'Рома');
+    st.lock = false;
+    await tween(st, 'fade', 1, 0.8);
+    st.npcs = [];
+    await card('Рома спасён', 'Осталось двое');
+    st.done.roma = 1;
+    saveDone();
+  }
+
+  async function main() {
+    st.done = await loadDone();
+    await tap();
+    if (!st.done.q1) await quest1();
+    st.hasGuitar = true;
+    st.box = false;
+    for (;;) {
+      const id = await openMap();
+      if (id === 'oka') await questRoma();
+    }
+  }
+
+  const nearGuitar = () => st.mode === 'room' && !st.hasGuitar && Math.hypot(pl.x - GUITAR_AT[0], pl.y - GUITAR_AT[1]) < 20;
+  const BTN = { atk: () => [W - 32, H - 32, 17], act: () => [W - 30, H - 78, 14], ult: () => [W - 72, H - 24, 13] };
+  function action() {
+    if (nearGuitar()) return { label: 'Взять', fn: takeGuitar };
+    const u = st.untie;
+    if (u && !u.done && Math.hypot(pl.x - u.x, pl.y - u.y) < 26) return { label: 'Развязать', fn: () => { u.done = true; } };
+    return null;
+  }
+  const ultReady = () => st.mode === 'arena' && fight.S.ult >= 1 && !fight.S.piano;
   const DIRS = { down: Math.PI / 2, up: -Math.PI / 2 };
   const baseAngle = () => pl.dir === 'side' ? (pl.face > 0 ? 0 : Math.PI) : DIRS[pl.dir];
 
   function attack() {
     if (st.swing > 0) return;
+    // автонаводка: в бою разворачиваемся к ближайшему врагу
+    if (st.mode === 'arena') {
+      const e = fight.nearest(44);
+      if (e) {
+        const dx = e.x - pl.x, dy = e.y - pl.y;
+        if (Math.abs(dx) > Math.abs(dy)) { pl.dir = 'side'; pl.face = dx > 0 ? 1 : -1; } else pl.dir = dy < 0 ? 'up' : 'down';
+      }
+      Sfx.play.swing();
+    }
     st.swing = 0.27;
     st.hit = false;
+    st.swingId++;
   }
 
   function update(dt) {
@@ -534,12 +767,17 @@
     if (dlg) dlg.shown = Math.min(dlg.text.length, dlg.shown + dt * 30);
     if (st.icon && (st.icon.t -= dt) <= 0) st.icon = null;
     st.shake = Math.max(0, st.shake - dt);
+    st.hurtFlash = Math.max(0, st.hurtFlash - dt);
+    st.ultFlash = Math.max(0, st.ultFlash - dt);
+    if (st.pop && (st.pop.t -= dt) <= 0) st.pop = null;
+    if (st.mode === 'arena' && !dlg) fight.update(dt);
     for (const p of st.parts) { p.life -= dt; p.vy += 220 * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
     st.parts = st.parts.filter(p => p.life > 0);
     if (st.swing > 0) {
       st.swing -= dt;
       const a = baseAngle(), tx = pl.x + Math.cos(a) * 12, ty = pl.y - 6 + Math.sin(a) * 10;
-      if (!st.hit && st.swing < 0.17 && st.box && Math.hypot(tx - (BOX[0] + 7), ty - (BOX[1] + 2)) < 16) {
+      if (st.mode === 'arena' && st.swing < 0.2 && st.swing > 0.04) fight.swingHit(tx, ty, st.swingId);
+      if (st.mode === 'room' && !st.hit && st.swing < 0.17 && st.box && Math.hypot(tx - (BOX[0] + 7), ty - (BOX[1] + 2)) < 16) {
         st.hit = true;
         st.box = false;
         st.stop = 0.08;
@@ -550,8 +788,12 @@
         }
       }
     }
-    let vx = 0, vy = 0;
-    if (st.mode === 'room' && !dlg && !st.lock) {
+    let vx = 0, vy = 0, free = false;
+    if (st.auto) {
+      const dx = st.auto[0] - pl.x, dy = st.auto[1] - pl.y, d = Math.hypot(dx, dy);
+      if (d < 1.5) st.auto = null;
+      else { vx = dx / d; vy = dy / d; free = true; }
+    } else if ((st.mode === 'room' || st.mode === 'arena') && !dlg && !st.lock) {
       if (joy) {
         const [dx, dy] = joyVec(14);
         vx = dx / 14; vy = dy / 14;
@@ -565,12 +807,12 @@
     }
     pl.moving = !!(vx || vy);
     if (!pl.moving) { pl.walkT = 0; return; }
-    moved = true;
+    if (!free) moved = true;
     pl.walkT += dt;
     if (Math.abs(vx) > Math.abs(vy) * 1.1) { pl.dir = 'side'; pl.face = vx > 0 ? 1 : -1; } else pl.dir = vy < 0 ? 'up' : 'down';
     const nx = pl.x + vx * SPEED * dt, ny = pl.y + vy * SPEED * dt;
-    if (!blocked(nx, pl.y)) pl.x = nx;
-    if (!blocked(pl.x, ny)) pl.y = ny;
+    if (free || !blocked(nx, pl.y)) pl.x = nx;
+    if (free || !blocked(pl.x, ny)) pl.y = ny;
   }
 
   // первое лицо: потолок, поворот на бок, рука тянется к телефону на полу
@@ -646,8 +888,10 @@
     F(c, px - 13 * s + jit, py - 4 * s, 26 * s, 8 * s, '#7fd0ff');
     F(c, px - 11 * s + jit, py - 3 * s, 10 * s, 2 * s, '#ffffff');
     if (w.hand > 0) {
-      const hx = W * 1.05 + (px + 6 - W * 1.05) * w.hand, hy = H * 1.15 + (py + 4 - H * 1.15) * w.hand;
-      const along = (k, r, col) => cdisc(c, hx + (W + 30 - hx) * k, hy + (H + 40 - hy) * k, r, col);
+      // плечо — у нижнего края прямо под телефоном, рука короткая
+      const sx = px + 38, sy = H + 16;
+      const hx = sx + (px + 6 - sx) * w.hand, hy = sy + (py + 4 - sy) * w.hand;
+      const along = (k, r, col) => cdisc(c, hx + (sx - hx) * k, hy + (sy - hy) * k, r, col);
       for (let k = 0; k <= 1; k += 0.04) along(k, 11, OUTLINE);
       for (let k = 0; k <= 1; k += 0.04) along(k, 10, k < 0.5 ? '#949eae' : '#858fa1');
       cdisc(c, hx + 6, hy + 6, 6, '#f6f4ef');
@@ -729,21 +973,31 @@
     b.restore();
   }
 
+  // удар всегда сверху вниз: [угол, длина гитары 0..1.3] на доле замаха q
+  function swingAt(q) {
+    const e = 1 - (1 - q) * (1 - q);
+    if (pl.dir === 'side') return [baseAngle() + (pl.face > 0 ? 1 : -1) * (-1.1 + 2.2 * e), 1];
+    // вверх/вниз: гитара над головой → об пол впереди, укорачивается к камере
+    const dy = pl.dir === 'down' ? -1 + 2 * e : -1.8 + 0.9 * e, dx = 0.25;
+    return [Math.atan2(dy, dx), Math.min(1.5, Math.max(0.35, Math.hypot(dx, dy)))];
+  }
+
   function drawSwing() {
     if (st.swing <= 0) return;
-    const k = 1 - st.swing / 0.27, base = baseAngle();
-    const ang = q => base - 1.1 + 2.2 * (1 - (1 - q) * (1 - q));
+    const k = 1 - st.swing / 0.27;
     const pxp = ox + Math.round(pl.x), pyp = oy + Math.round(pl.y) - 9;
     b.fillStyle = '#ffffff';
     for (let i = 1; i <= 3; i++) {
-      const a = ang(Math.max(0, k - i * 0.08));
+      const [a, len] = swingAt(Math.max(0, k - i * 0.08));
       b.globalAlpha = 0.5 / i;
-      for (let r = 10; r < 20; r += 2) b.fillRect(Math.round(pxp + Math.cos(a) * r), Math.round(pyp + Math.sin(a) * r), 2, 2);
+      for (let r = 10; r < 20; r += 2) b.fillRect(Math.round(pxp + Math.cos(a) * r * len), Math.round(pyp + Math.sin(a) * r * len), 2, 2);
     }
     b.globalAlpha = 1;
+    const [a, len] = swingAt(k);
     b.save();
     b.translate(pxp, pyp);
-    b.rotate(ang(k) - Math.PI / 2);
+    b.rotate(a - Math.PI / 2);
+    b.scale(1, len);
     b.drawImage(SPR.guitar, -4, -6);
     b.restore();
   }
@@ -782,7 +1036,7 @@
   }
 
   function drawButtons() {
-    if (dlg || st.lock) return;
+    if (dlg || st.lock || st.auto) return;
     const btn = ([x, y, r], ring, on) => {
       disc(x, y, r + 1, OUTLINE);
       b.globalAlpha = on ? 0.95 : 0.6;
@@ -792,7 +1046,8 @@
       for (let a = 0; a < 6.28; a += 0.08) b.fillRect(Math.round(x + Math.cos(a) * r), Math.round(y + Math.sin(a) * r), 1, 1);
     };
     if (st.hasGuitar) btn(BTN.atk(), '#ffd23f', st.swing <= 0);
-    if (nearGuitar()) btn(BTN.act(), '#7bd389', true);
+    if (ultReady()) btn(BTN.ult(), '#7fd0ff', true);
+    if (action()) btn(BTN.act(), '#7bd389', true);
   }
 
   function drawRoom() {
@@ -815,6 +1070,31 @@
     drawJoy();
   }
 
+  function drawArena() {
+    const sh = st.shake ? Math.round((Math.random() * 2 - 1) * 2) : 0;
+    ox += sh;
+    const P = places[st.place];
+    P.ground();
+    fight.drawUnder();
+    const items = [...P.props, ...fight.items(), ...st.npcs.map(n => [n.y, () => drawNpc(n)]), [pl.y, drawPlayerAll]].sort((a, z) => a[0] - z[0]);
+    for (const [, fn] of items) fn();
+    for (const p of st.parts) R(p.x, p.y, 2, 2, p.col);
+    fight.drawOver();
+    drawMarker();
+    drawIcon();
+    ox -= sh;
+    if (st.hurtFlash > 0) {
+      b.globalAlpha = st.hurtFlash * 2.5;
+      b.fillStyle = '#c0392b';
+      b.fillRect(0, 0, W, 6); b.fillRect(0, H - 6, W, 6); b.fillRect(0, 0, 6, H); b.fillRect(W - 6, 0, 6, H);
+      b.globalAlpha = 1;
+    }
+    if (st.ultFlash > 0) { b.globalAlpha = st.ultFlash * 2; b.fillStyle = '#ffffff'; b.fillRect(0, 0, W, H); b.globalAlpha = 1; }
+    if (!st.lock) fight.hud();
+    drawButtons();
+    drawJoy();
+  }
+
   function dlgRect() {
     const h = 56, x0 = 6;
     return { x0, y0: H - h - 6, w: (st.mode === 'phone' ? PX() - 8 : W - 6) - x0, h };
@@ -832,7 +1112,7 @@
     b.fillStyle = '#34314a';
     b.fillRect(x0 + 4, y0 + 4, Portrait.W, h - 8);
     const talking = dlg.shown < dlg.text.length && Math.floor(st.t * 9) % 2 === 0;
-    b.drawImage(Portrait.render(dlg.emo, talking), x0 + 4, y0 + h - 4 - Portrait.H);
+    b.drawImage(Portrait.render(dlg.emo, talking, PID[dlg.who]), x0 + 4, y0 + h - 4 - Portrait.H);
     b.fillStyle = OUTLINE;
     b.fillRect(x0 + 3, y0 - 12, 48, 12);
     b.fillStyle = '#ffd23f';
@@ -918,7 +1198,7 @@
   function drawOverlayText() {
     if (st.mode === 'title') {
       text('АРТЕМИЙ', W / 2, H / 2 - 8, 18, '#ffd23f', 'center', 900);
-      text('Глава 1 · Осознание', W / 2, H / 2 + 6, 7, '#f4f1ea', 'center', 700);
+      text(st.done.q1 ? 'Глава 2 · Спасение' : 'Глава 1 · Осознание', W / 2, H / 2 + 6, 7, '#f4f1ea', 'center', 700);
       if (Math.floor(st.t * 2) % 2) text('тапни, чтобы начать', W / 2, H - 20, 6, '#9a96a8', 'center', 700);
     }
     if (st.mode === 'date') {
@@ -931,20 +1211,36 @@
       text('бзз… бзз…', px, py - 16, 6, '#3a3a46', 'center', 800);
     }
     if (st.mode === 'phone') drawPhoneUI();
+    if (st.mode === 'map') drawMapUI();
+    if (st.mode === 'card') {
+      g.globalAlpha = st.cardA;
+      text(st.card.title, W / 2, H / 2 - 2, 16, '#ffd23f', 'center', 900);
+      text(st.card.sub, W / 2, H / 2 + 12, 6.5, '#f4f1ea', 'center', 700);
+      g.globalAlpha = 1;
+    }
+    if (st.mode === 'arena') {
+      for (const [str, x, y, size, col] of places[st.place].signs) text(str, ox + x, oy + y, size, col, 'center', 900);
+      if (st.pop) text(st.pop.text, ox + st.pop.x, oy + st.pop.y - (0.9 - st.pop.t) * 10, 9, '#ffd23f', 'center', 900);
+    }
     if (st.mode === 'end') {
       text('Продолжение следует…', W / 2, H / 2 - 2, 11, '#f4f1ea', 'center', 800);
       text('Квест 1 · Осознание пройден', W / 2, H / 2 + 12, 6, '#9a96a8', 'center', 700);
     }
-    if (st.mode === 'room' && !dlg) {
+    if ((st.mode === 'room' || st.mode === 'arena') && !dlg) {
       if (st.task) {
         g.font = `800 ${6.5 * scale}px ${FONT}`;
         const tw = g.measureText('Задание: ' + st.task).width / scale + 14;
-        rr(W / 2 - tw / 2, 4, tw, 12, 4, 'rgba(20,18,32,.82)');
-        text('Задание: ' + st.task, W / 2, 12.3, 6.5, '#ffd23f', 'center', 800);
+        // в бою вывески на стене сверху по центру, поэтому задание справа
+        const cx = st.mode === 'arena' ? W - tw / 2 - 6 : W / 2;
+        rr(cx - tw / 2, 4, tw, 12, 4, 'rgba(20,18,32,.82)');
+        text('Задание: ' + st.task, cx, 12.3, 6.5, '#ffd23f', 'center', 800);
       }
-      if (st.hasGuitar && !st.lock) { const [x, y] = BTN.atk(); text('Удар', x, y + 2.5, 6, '#ffd23f', 'center', 900); }
-      if (nearGuitar()) { const [x, y] = BTN.act(); text('Взять', x, y + 2, 5, '#7bd389', 'center', 900); }
-      if (!moved) text('Веди пальцем слева, чтобы идти', W / 2, H - 8, 6.5, 'rgba(255,255,255,.85)', 'center', 800);
+      const shown = !st.lock && !st.auto;
+      if (st.hasGuitar && shown) { const [x, y] = BTN.atk(); text('Удар', x, y + 2.5, 6, '#ffd23f', 'center', 900); }
+      if (ultReady() && shown) { const [x, y] = BTN.ult(); text('Ульта', x, y + 2, 5, '#7fd0ff', 'center', 900); }
+      const act = shown && action();
+      if (act) { const [x, y] = BTN.act(); text(act.label, x, y + 2, act.label.length > 6 ? 4.2 : 5, '#7bd389', 'center', 900); }
+      if (!moved && shown && (st.mode === 'room' || !fight.foes().length)) text('Веди пальцем слева, чтобы идти', W / 2, H - 8, 6.5, 'rgba(255,255,255,.85)', 'center', 800);
     }
     if (dlg) {
       const { x0, y0, w, h } = dlgRect();
@@ -957,6 +1253,10 @@
     if (st.fade > 0) {
       g.fillStyle = `rgba(0,0,0,${st.fade})`;
       g.fillRect(0, 0, cv.width, cv.height);
+    }
+    if (st.deadMsg) {
+      text('Тебя вырубили', W / 2, H / 2 - 2, 11, '#e74c3c', 'center', 900);
+      text('ещё раз', W / 2, H / 2 + 12, 6.5, '#9a96a8', 'center', 700);
     }
   }
 
@@ -973,6 +1273,8 @@
       drawPhoneFrame();
     }
     if (st.mode === 'room') drawRoom();
+    if (st.mode === 'arena') drawArena();
+    if (st.mode === 'map') drawMap();
     drawDialogBox();
     g.drawImage(buf, 0, 0, W * scale, H * scale);
     drawOverlayText();
@@ -1001,17 +1303,21 @@
 
   function onDown(e) {
     if (e.pointerType === 'touch') goFull();
+    Sfx.unlock();
     if (tapWait) { const r = tapWait; tapWait = null; r(); return; }
     if (dlg) {
       if (dlg.shown < dlg.text.length) dlg.shown = dlg.text.length;
       else { const r = dlg.r; dlg = null; r(); }
       return;
     }
-    if (st.mode !== 'room' || st.lock || e.pointerType === 'key') return;
+    if (st.mode === 'map' && e.pointerType !== 'key') return mapTap(...toBuf(e));
+    if ((st.mode !== 'room' && st.mode !== 'arena') || st.lock || st.auto || e.pointerType === 'key') return;
     const [x, y] = toBuf(e);
     const hitBtn = ([bx, by, r]) => Math.hypot(x - bx, y - by) < r + 6;
     if (st.hasGuitar && hitBtn(BTN.atk())) return attack();
-    if (nearGuitar() && hitBtn(BTN.act())) return takeGuitar();
+    if (ultReady() && hitBtn(BTN.ult())) return fight.ult();
+    const act = action();
+    if (act && hitBtn(BTN.act())) return act.fn();
     if (x < W * 0.55 && !joy) { joy = { id: e.pointerId, sx: x, sy: y, x, y }; cv.setPointerCapture(e.pointerId); }
   }
 
@@ -1029,17 +1335,18 @@
     const end = e => { if (joy && e.pointerId === joy.id) joy = null; };
     cv.addEventListener('pointerup', end);
     cv.addEventListener('pointercancel', end);
-    // с клавиатуры: пробел — тап, J — удар, E — взять
+    // с клавиатуры: пробел — тап, J — удар, K — ульта, E — взять/развязать
     addEventListener('keydown', e => {
       keys.add(e.code);
       if (e.code === 'Space') onDown({ pointerType: 'key', clientX: 0, clientY: 0 });
-      if (st.mode !== 'room' || dlg || st.lock) return;
+      if ((st.mode !== 'room' && st.mode !== 'arena') || dlg || st.lock || st.auto) return;
       if (e.code === 'KeyJ' && st.hasGuitar) attack();
-      if (e.code === 'KeyE' && nearGuitar()) takeGuitar();
+      if (e.code === 'KeyK' && ultReady()) fight.ult();
+      if (e.code === 'KeyE' && action()) action().fn();
     });
     addEventListener('keyup', e => keys.delete(e.code));
     requestAnimationFrame(loop);
-    quest1();
+    main();
   }
 
   init();
