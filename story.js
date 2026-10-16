@@ -749,6 +749,7 @@
   });
 
   async function rescued(name, key) {
+    Sfx.stopMusic();
     st.done[key] = 1;
     saveDone();
     st.lock = false;
@@ -790,15 +791,16 @@
     st.icon = { sym: '!', t: 1 };
     await say('shock', 'Антон?!');
     await say('angry', 'ПАЦАНЫ СНИМИТЕ МЕНЯ БЛЯТЬ', 'Антон');
-    fight.start([[LG('lg1', [-10, 60], [40, 64]), LG('lg2', [FW + 10, 60], [184, 64]), BUOY('lg1', [FW + 10, 90], [190, 96])],
-      [LG('lg2', [-10, 40], [30, 40]), BUOY('lg2', [-10, 96], [30, 100]), LG('lg1', [FW + 10, 40], [196, 40]), BUOY('lg1', [FW + 10, 70], [200, 74])]], { calm: true });
+    const lifeguards = [[LG('lg1', [-10, 60], [40, 64]), LG('lg2', [FW + 10, 60], [184, 64]), BUOY('lg1', [FW + 10, 90], [190, 96])],
+      [LG('lg2', [-10, 40], [30, 40]), BUOY('lg2', [-10, 96], [30, 100]), LG('lg1', [FW + 10, 40], [196, 40]), BUOY('lg1', [FW + 10, 70], [200, 74])],
+      [LG('lg1', [-10, 70], [30, 70]), LG('lg2', [FW + 10, 70], [194, 70]), BUOY('lg2', [-10, 40], [30, 44]), BUOY('lg1', [FW + 10, 96], [196, 100]), LG('lg1', [FW + 10, 40], [190, 40])]];
+    fight.start(lifeguards, { calm: true });
     await until(() => fight.arrived());
     await say('angry', 'Купаться запрещено!', 'Спасатель');
     await say('think', 'Тут даже воды нет');
     st.lock = false;
     fight.engage();
-    await brawl([[LG('lg1', [-10, 60], [40, 64]), LG('lg2', [FW + 10, 60], [184, 64]), BUOY('lg1', [FW + 10, 90], [190, 96])],
-      [LG('lg2', [-10, 40], [30, 40]), BUOY('lg2', [-10, 96], [30, 100]), LG('lg1', [FW + 10, 40], [196, 40]), BUOY('lg1', [FW + 10, 70], [200, 74])]], [76, 100], true);
+    await brawl(lifeguards, [76, 100], true);
     await wait(0.4);
     await say('think', 'Как его туда блять подняли с его то весом?');
     if (st.done.roma) await say('shock', 'Да пизде, с таким то весом поднять его? Что там за чудище то', 'Рома');
@@ -878,11 +880,13 @@
     await goTo('pizza2', [-10, 70], [26, 70], 'side');
     const andrey = { def: 'andrey', x: 112, y: 40, dir: 'down', face: 1, pose: 'tied' };
     st.npcs = [andrey];
-    fight.start([[BEAR([FW + 10, 70], [170, 70], 14), FOX([FW + 10, 90], [190, 96]), CHICK([-10, 100], [30, 104])]], { calm: true });
+    const backroom = [[BEAR([FW + 10, 70], [170, 70], 14), FOX([FW + 10, 90], [190, 96]), CHICK([-10, 100], [30, 104])],
+      [BUNNY([-10, 64], [28, 64]), FOX([FW + 10, 56], [192, 56]), BUNNY([FW + 10, 84], [188, 88]), CHICK([FW + 10, 100], [196, 102])]];
+    fight.start(backroom, { calm: true });
     await until(() => fight.arrived());
     await say('angry', 'бля пацаны сзади', 'Андрей');
     fight.engage();
-    await brawl([[BEAR([FW + 10, 70], [170, 70], 14), FOX([FW + 10, 90], [190, 96]), CHICK([-10, 100], [30, 104])]], [26, 70], true);
+    await brawl(backroom, [26, 70], true);
     st.task = 'Развяжи Андрея';
     st.untie = { x: andrey.x, y: andrey.y + 8, done: false };
     await goal(() => st.untie.done);
