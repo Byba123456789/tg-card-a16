@@ -27,7 +27,7 @@ const Game = (() => {
   let cv, g, buf, b, W, H, scale, raf = 0, last = 0, st = null, ch = null, best = 0;
   // обучение показываем один раз: первые шаги и первая птица
   const TUT_STEPS = 6;
-  let tutDone = false, tutBirdDone = false;
+  let tutDone = false, tutBirdDone = false, introSeen = false;
   let sky = null, skyKey = '';
   const $ = id => document.getElementById(id);
   const rnd = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -775,6 +775,8 @@ const Game = (() => {
 
   function onTap(e) {
     Sound.unlock();
+    // окно с правилами уже видели — игра стартует первым тапом
+    if (st && st.mode === 'ready' && $('gStart').classList.contains('hidden')) return start();
     if (!st || st.mode !== 'climb') return;
     e.preventDefault();
     const r = cv.getBoundingClientRect();
@@ -905,6 +907,7 @@ const Game = (() => {
   }
 
   function start() {
+    if (!introSeen) { introSeen = true; store.set('intro', 1); }
     Sound.unlock();
     Sound.play('click');
     reset();
@@ -929,6 +932,11 @@ const Game = (() => {
     store.get('best').then(v => { best = parseInt(v, 10) || 0; if (st) updateHud(); });
     store.get('tut').then(v => { tutDone = v === '1'; if (st && st.mode === 'ready') st.tut = !tutDone; });
     store.get('tutBird').then(v => { tutBirdDone = v === '1'; });
+    // правила — только при первом заходе; у кого есть кнопка «Есть код?», окно остаётся
+    store.get('intro').then(v => {
+      introSeen = v === '1';
+      if (introSeen && $('gCode').classList.contains('hidden') && st && st.mode === 'ready') $('gStart').classList.add('hidden');
+    });
   }
 
   return {

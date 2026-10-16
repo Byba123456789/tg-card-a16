@@ -11,7 +11,7 @@
 <script src="photos.js?h=f5bf2acc"></script>
 <script src="audio.js?h=acd93e73"></script>
 <script src="char.js?h=0930f3a0"></script>
-<script src="game.js?h=f212d37e"></script>
+<script src="game.js?h=611f7688"></script>
 <style>
 :root {
   --wall: #262a31;
@@ -556,7 +556,7 @@ document.getElementById('captchaModal').addEventListener('click', e => { if (e.t
 function revealTabs() {
   document.getElementById('tabs').classList.remove('hidden');
   document.querySelector('.next-wrap').classList.add('hidden');
-  if (TESTERS.includes(username) || FULL.includes(username)) document.getElementById('tabStory').classList.remove('hidden');
+  document.getElementById('tabStory').classList.remove('hidden');
 }
 
 function goNext() {
@@ -613,7 +613,7 @@ let titleTaps = 0;
 document.getElementById('title').addEventListener('click', async () => {
   if (!(TESTERS.includes(username) || !inTg) || ++titleTaps < 5) return;
   titleTaps = 0;
-  await store.clear(['visits', 'captcha', 'tut', 'tutBird', 'story']);
+  await store.clear(['visits', 'captcha', 'tut', 'tutBird', 'story', 'intro']);
   toast('Сброшено, перезаходи');
 });
 
