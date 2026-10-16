@@ -278,10 +278,10 @@
       if (done) { jobs.splice(jobs.indexOf(j), 1); j.r(); }
     }
   }
-  // пока говорят, музыка на паузе — слышно «голос»
+  // пока говорят, музыка тише — слышно «голос»; первый диалог локации — в тишине, музыка после него
   const say = (emo, text, who = 'Артемий') => new Promise(r => {
     Sfx.hold('dlg', true);
-    dlg = { emo, text, who, shown: 0, r: v => { Sfx.hold('dlg', false); r(v); } };
+    dlg = { emo, text, who, shown: 0, r: v => { Sfx.hold('dlg', false); setTimeout(() => { if (!dlg) Sfx.hold('intro', false); }, 350); r(v); } };
   });
 
   function vib() {
@@ -580,7 +580,7 @@
     for (;;) {
       if (!started) fight.start(retry);
       started = false;
-      if (st.track) Sfx.music(st.track);
+      Sfx.hold('intro', false);
       st.task = 'Отбейся';
       await until(() => {
         if (st.skip) { st.skip = false; fight.skip(); }
@@ -902,7 +902,6 @@
   // ---------- финал: записка, удар по голове, космос, босс «Развитие», Махорага, дом ----------
   const BOSS_HP = 170, DARK_HP = 60;
   async function questFinal(who = 'Рома') {
-    st.track = null;
     Sfx.stopMusic();
     st.fade = 1;
     await loading('boss');
@@ -1151,18 +1150,18 @@
     const QUEST = { oka: questRoma, tower: questAnton, fnaf: questAndrey, yam: questFinal };
     for (;;) {
       const id = await openMap();
-      st.track = TRACK[id];
-      if (st.track) {
+      if (TRACK[id]) {
         st.fade = 1;
-        await loading(st.track);
+        await loading(TRACK[id]);
+        Sfx.hold('intro', true);
+        Sfx.music(TRACK[id]);
       }
       await QUEST[id]();
-      st.track = null;
       Sfx.stopMusic();
     }
   }
 
-  // перед локацией качаем её трек (играет с первой драки); сеть умерла — через 20 с без музыки
+  // перед локацией качаем её трек (вступает после первого диалога); сеть умерла — через 20 с без музыки
   const TRACK = { oka: 'roma', tower: 'anton', fnaf: 'andrey' };
   const LOAD_TXT = ['Мажем грим на актёров', 'Рвём туз Артемия', 'Настраиваем гитару', 'Прячем ключ в жирного', 'Надуваем батут', 'Пушкин поправляет вышку',
     'Будим аниматроников', 'Меняем батарейки в фонаре', 'Греем бургеры в БК', 'Связываем Рому покрепче', 'Учим Развитие умным словам', 'Качаем Клода',

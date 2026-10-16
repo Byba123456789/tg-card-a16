@@ -94,31 +94,50 @@ const Sfx = (() => {
     }).catch(() => { delete loads[name]; return false; });
     return loads[name];
   }
-  // громкость зашита в файлы: на iPhone el.volume не работает, поэтому только play/pause
-  // hold — причины тишины (диалог, ульта); музыка играет, когда их нет
+  // громкость зашита в файлы, плавность — через GainNode (на iPhone el.volume не работает)
+  // hold — причины тишины: intro (первый диалог локации) и ult — в ноль, dlg — приглушить
   let bgm = null;
   const holds = new Set();
-  const resume = () => { if (bgm && !holds.size && !document.hidden) bgm.el.play().catch(() => {}); };
+  const level = () => holds.has('intro') || holds.has('ult') ? 0 : holds.has('dlg') ? 0.25 : 1;
+  function fadeTo(m, v, after) {
+    const a = ctx();
+    if (m.g && a) { m.g.gain.cancelScheduledValues(a.currentTime); m.g.gain.setTargetAtTime(v, a.currentTime, 0.12); } else m.el.volume = v;
+    if (after) setTimeout(after, 500);
+  }
+  function apply() {
+    if (!bgm) return;
+    const m = bgm, v = document.hidden ? 0 : level();
+    if (v > 0 && m.el.paused) m.el.play().catch(() => {});
+    fadeTo(m, v, v ? null : () => { if (bgm !== m || (document.hidden ? 0 : level()) === 0) m.el.pause(); });
+  }
   function music(name) {
-    if (bgm && bgm.name === name) return resume();
-    stopMusic();
+    if (bgm && bgm.name === name) return apply();
+    drop();
     if (!tracks[name]) return;
-    const el = new Audio(tracks[name]);
+    const el = new Audio(tracks[name]), a = ctx();
     el.loop = true;
-    bgm = { name, el };
-    resume();
+    let g = null;
+    if (a) try { g = a.createGain(); g.gain.value = 0; a.createMediaElementSource(el).connect(g).connect(a.destination); } catch { g = null; }
+    bgm = { name, el, g };
+    apply();
+  }
+  function drop() {
+    if (!bgm) return;
+    const m = bgm;
+    bgm = null;
+    fadeTo(m, 0, () => m.el.pause());
   }
   function stopMusic() {
-    if (bgm) bgm.el.pause();
-    bgm = null;
+    holds.delete('intro');
+    drop();
   }
-  // между репликами пауза не снимается, иначе музыка дёргается
+  // снятие паузы с задержкой: между репликами музыка не успевает вернуться
   function hold(why, on) {
-    if (on) { holds.add(why); if (bgm) bgm.el.pause(); return; }
+    if (on) { holds.add(why); return apply(); }
     holds.delete(why);
-    setTimeout(resume, 350);
+    setTimeout(apply, 350);
   }
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { if (bgm) bgm.el.pause(); } else resume(); });
+  document.addEventListener('visibilitychange', apply);
 
   // ульта: трек Годжо, если скачался; иначе фортепианная заглушка; музыка локации молчит
   function piano(dur) {
