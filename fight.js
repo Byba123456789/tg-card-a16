@@ -1,4 +1,4 @@
-// звук сюжетки: короткий синт, без файлов (кроме ульты, если есть audio/gojo.mp3)
+// звук сюжетки: короткий синт + треки локаций и ульты из audio/
 const Sfx = (() => {
   let ac = null;
   function ctx() {
@@ -74,9 +74,26 @@ const Sfx = (() => {
     tada: () => { [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, 0.4, { vol: 0.07, at: i * 0.1 })); [523, 659, 784].forEach(f => tone(f, 1.6, { vol: 0.05, at: 0.55 })); },
   };
 
-  // музыка по кругу (файлы кладёт юзер): audio/fight.mp3 — в драках; без файла — тишина
-  const tracks = {};
-  for (const name of ['fight']) fetch(`audio/${name}.mp3`).then(r => r.ok ? r.blob() : Promise.reject()).then(bl => { tracks[name] = URL.createObjectURL(bl); }).catch(() => {});
+  // треки качаются один раз в blob (экран загрузки показывает прогресс), без файла — тишина
+  const tracks = {}, loads = {}, prog = {};
+  function load(name) {
+    loads[name] ||= fetch(`audio/${name}.mp3`).then(async r => {
+      if (!r.ok) throw 0;
+      const total = +r.headers.get('content-length') || 0, rd = r.body.getReader(), parts = [];
+      let got = 0;
+      for (;;) {
+        const { done, value } = await rd.read();
+        if (done) break;
+        parts.push(value);
+        got += value.length;
+        if (total) prog[name] = got / total;
+      }
+      tracks[name] = URL.createObjectURL(new Blob(parts, { type: 'audio/mpeg' }));
+      prog[name] = 1;
+      return true;
+    }).catch(() => { delete loads[name]; return false; });
+    return loads[name];
+  }
   let bgm = null;
   function music(name) {
     if (bgm && bgm.name === name) return;
@@ -96,13 +113,11 @@ const Sfx = (() => {
   }
   document.addEventListener('visibilitychange', () => { if (bgm) document.hidden ? bgm.el.pause() : bgm.el.play().catch(() => {}); });
 
-  // ульта: трек из файла, если он есть; иначе фортепианная заглушка
-  let track = null;
-  fetch('audio/gojo.mp3').then(r => r.ok ? r.blob() : Promise.reject()).then(bl => { track = URL.createObjectURL(bl); }).catch(() => {});
+  // ульта: трек Годжо, если скачался; иначе фортепианная заглушка
   function piano(dur) {
-    if (bgm) { bgm.el.volume = 0.1; setTimeout(() => { if (bgm) bgm.el.volume = 0.45; }, dur * 1000); }
-    if (track) {
-      const el = new Audio(track);
+    if (bgm) { const el = bgm.el; el.volume = 0.08; setTimeout(() => { if (bgm && bgm.el === el) el.volume = 0.45; }, dur * 1000); }
+    if (tracks.gojo) {
+      const el = new Audio(tracks.gojo);
       el.volume = 0.9;
       el.play().catch(() => {});
       setTimeout(() => { const f = setInterval(() => { el.volume = Math.max(0, el.volume - 0.1); if (el.volume <= 0) { clearInterval(f); el.pause(); } }, 50); }, dur * 1000 - 500);
@@ -116,7 +131,7 @@ const Sfx = (() => {
       if (i % 4 === 0) tone(f / 2, 1.6, { type: 'sine', vol: 0.08, at });
     });
   }
-  return { unlock: ctx, play, piano, music, stopMusic };
+  return { unlock: ctx, play, piano, music, stopMusic, load, progress: name => prog[name] || 0 };
 })();
 
 // бой в духе Isaac: волны врагов, телеграф атаки, удар гитарой, ульта-пианино
@@ -130,6 +145,8 @@ const Fight = C => {
     ranged: { hp: 3, speed: 26, wind: 0.55, act: 0.1, rest: 1.5, reach: 80, keep: 55, dmg: 1, proj: 'ring' },
     boss: { hp: 70, speed: 22, reach: 0, dmg: 2 },
   };
+  // ульта длится, пока играет gojo.mp3 (13 с); волны реже и слабее, чтобы урон за ульту остался прежним
+  const ULT_T = 13;
   const S = { hp: 6, max: 6, inv: 0, ult: 0, piano: null, dead: false, swing: 0, script: false, event: null, noDeath: false };
   let foes = [], fx = [], drops = [], rings = [], waves = [], waveI = 0, waveT = 0, calm = false;
   let shots = [], pops = [], allies = [];
@@ -199,7 +216,7 @@ const Fight = C => {
     e.kbx = dx / d * k; e.kby = dy / d * k; e.kbt = 0.12;
     // замах сбивается не всегда, иначе частые удары делают врагов безобидными
     if (e.t !== 'fat' && !e.boss && e.state === 'wind' && Math.random() < 0.4) { e.state = 'rest'; e.time = 0.3; }
-    if (mine) S.ult = Math.min(1, S.ult + 0.05);
+    if (mine && !S.piano) S.ult = Math.min(1, S.ult + 0.05);
     if (mine || !e.boss) puff(e.x, e.y - (e.boss ? 24 : 8), 5, ['#ffffff', '#f5d6a0', '#e8a08c']);
     if (e.boss) { if (mine) Sfx.play.hit(); return; }
     if (e.hp <= 0) {
@@ -242,8 +259,8 @@ const Fight = C => {
     st.stop = 0.3;
     st.ultFlash = 0.3;
     Sfx.play.snap();
-    S.piano = { x: Math.max(30, Math.min(194, pl.x)), y: Math.max(26, pl.y - 14), t: 4.3, next: 0.35, notes: [] };
-    Sfx.piano(4.3);
+    S.piano = { x: Math.max(30, Math.min(194, pl.x)), y: Math.max(26, pl.y - 14), t: ULT_T, next: 0.35, notes: [] };
+    Sfx.piano(ULT_T);
     return true;
   }
 
@@ -275,7 +292,7 @@ const Fight = C => {
       const p = S.piano;
       p.t -= dt;
       p.next -= dt;
-      if (p.next <= 0 && p.t > 0.4) { p.next = 0.5; rings.push({ x: p.x, y: p.y, r: 6, hit: new Set() }); }
+      if (p.next <= 0 && p.t > 0.4) { p.next = 0.8; rings.push({ x: p.x, y: p.y, r: 6, hit: new Set() }); }
       if (Math.random() < dt * 6) p.notes.push({ x: p.x + (Math.random() - 0.5) * 20, y: p.y - 14, life: 1 });
       for (const n of p.notes) { n.life -= dt; n.y -= 16 * dt; n.x += Math.sin(n.life * 8) * 0.3; }
       p.notes = p.notes.filter(n => n.life > 0);
@@ -285,7 +302,7 @@ const Fight = C => {
       r.r += 85 * dt;
       for (const e of [...foes]) {
         if (r.hit.has(e) || e.state === 'enter') continue;
-        if (Math.abs(Math.hypot(e.x - r.x, (e.y - r.y) * 1.4) - r.r) < 7) { r.hit.add(e); damage(e, 1, r, 18); }
+        if (Math.abs(Math.hypot(e.x - r.x, (e.y - r.y) * 1.4) - r.r) < 7) { r.hit.add(e); damage(e, 0.5, r, 18); }
       }
     }
     rings = rings.filter(r => r.r < 150);
@@ -734,7 +751,7 @@ const Fight = C => {
   }
   function drawPiano(p) {
     const x = Math.round(p.x) - 14, y = Math.round(p.y);
-    const k = Math.min(1, (4.3 - p.t) / 0.25);
+    const k = Math.min(1, (ULT_T - p.t) / 0.25);
     if (k < 1) { C.b.globalAlpha = k; }
     R(x - 1, y - 21, 30, 23, OUTLINE);
     R(x, y - 20, 28, 14, '#16161c');

@@ -576,14 +576,12 @@
     for (;;) {
       if (!started) fight.start(retry);
       started = false;
-      Sfx.music('fight');
       st.task = 'Отбейся';
       await until(() => {
         if (st.skip) { st.skip = false; fight.skip(); }
         return fight.cleared() || fight.S.dead;
       });
-      if (!fight.S.dead) { st.task = ''; Sfx.stopMusic(); Sfx.play.win(); return; }
-      Sfx.stopMusic();
+      if (!fight.S.dead) { st.task = ''; Sfx.play.win(); return; }
       Sfx.play.lose();
       st.lock = true;
       st.task = '';
@@ -899,6 +897,9 @@
   // ---------- финал: записка, удар по голове, космос, босс «Развитие», Махорага, дом ----------
   const BOSS_HP = 170, DARK_HP = 60;
   async function questFinal(who = 'Рома') {
+    Sfx.stopMusic();
+    st.fade = 1;
+    await loading('boss');
     // записка от первого лица — и удар сзади
     st.lock = true;
     st.fp = { k: 0, text: 0, fall: 0 };
@@ -943,7 +944,7 @@
     await say('angry', 'Иди нахуй');
     st.lock = false;
     fight.engage();
-    Sfx.music('fight');
+    Sfx.music('boss');
     // 1. бой на земле до первой «смерти»; проиграл — та же драка, босс не лечится
     st.task = 'Победи Развитие';
     for (;;) {
@@ -955,7 +956,6 @@
       hp = Math.max(Math.ceil(BOSS_HP * 0.3), fight.boss().hp);
       st.lock = true;
       st.task = '';
-      Sfx.stopMusic();
       Sfx.play.lose();
       await wait(0.6);
       await tween(st, 'fade', 1, 0.6);
@@ -967,7 +967,6 @@
       fight.setAllies(FRIENDS);
       st.lock = false;
       st.task = 'Победи Развитие';
-      Sfx.music('fight');
       await tween(st, 'fade', 0, 0.5);
     }
     // 2. падает, тьма его поглощает, он взлетает
@@ -1146,8 +1145,28 @@
     const QUEST = { oka: questRoma, tower: questAnton, fnaf: questAndrey, yam: questFinal };
     for (;;) {
       const id = await openMap();
+      if (TRACK[id]) {
+        st.fade = 1;
+        await loading(TRACK[id]);
+        Sfx.music(TRACK[id]);
+      }
       await QUEST[id]();
+      Sfx.stopMusic();
     }
+  }
+
+  // перед локацией качаем её трек, чтобы музыка шла с первой секунды; сеть умерла — через 20 с без музыки
+  const TRACK = { oka: 'roma', tower: 'anton', fnaf: 'andrey' };
+  const LOAD_TXT = ['Мажем грим на актёров', 'Рвём туз Артемия', 'Настраиваем гитару', 'Прячем ключ в жирного', 'Надуваем батут', 'Пушкин поправляет вышку',
+    'Будим аниматроников', 'Меняем батарейки в фонаре', 'Греем бургеры в БК', 'Связываем Рому покрепче', 'Учим Развитие умным словам', 'Качаем Клода',
+    'Ищем, где Антон бросил велик', 'Андрей точит когти', 'Рома заряжает ноутбук', 'Сдуваем пыль с пианино', 'Договариваемся с охраной ОКИ', 'Считаем свечки на торте: 16'];
+  async function loading(name) {
+    Sfx.load('gojo');
+    if (Sfx.progress(name) >= 1) return;
+    st.loadI = Math.floor(Math.random() * LOAD_TXT.length);
+    st.loadName = name;
+    await Promise.race([Sfx.load(name), wait(20)]);
+    st.loadName = null;
   }
 
   const nearGuitar = () => st.mode === 'room' && !st.hasGuitar && Math.hypot(pl.x - GUITAR_AT[0], pl.y - GUITAR_AT[1]) < 20;
@@ -1937,6 +1956,13 @@
     if (st.fade > 0) {
       g.fillStyle = `rgba(0,0,0,${st.fade})`;
       g.fillRect(0, 0, cv.width, cv.height);
+    }
+    if (st.loadName) {
+      const k = Sfx.progress(st.loadName), bw = Math.min(180, W - 80);
+      text(LOAD_TXT[(st.loadI + Math.floor(st.t / 1.6)) % LOAD_TXT.length] + '…', W / 2, H / 2 - 8, 8, '#ffd23f', 'center', 900);
+      rr(W / 2 - bw / 2 - 2, H / 2 + 4, bw + 4, 8, 3, '#2c3442');
+      rect(W / 2 - bw / 2, H / 2 + 6, bw * k, 4, '#f0a020');
+      text(`Загрузка ${Math.round(k * 100)}%`, W / 2, H / 2 + 24, 6, '#9a96a8', 'center', 700);
     }
     if (st.deadMsg) {
       text('Тебя вырубили', W / 2, H / 2 - 2, 11, '#e74c3c', 'center', 900);
