@@ -94,33 +94,38 @@ const Sfx = (() => {
     }).catch(() => { delete loads[name]; return false; });
     return loads[name];
   }
+  // громкость зашита в файлы: на iPhone el.volume не работает, поэтому только play/pause
+  // hold — причины тишины (диалог, ульта); музыка играет, когда их нет
   let bgm = null;
+  const holds = new Set();
+  const resume = () => { if (bgm && !holds.size && !document.hidden) bgm.el.play().catch(() => {}); };
   function music(name) {
-    if (bgm && bgm.name === name) return;
+    if (bgm && bgm.name === name) return resume();
     stopMusic();
     if (!tracks[name]) return;
     const el = new Audio(tracks[name]);
     el.loop = true;
-    el.volume = 0.45;
-    el.play().catch(() => {});
     bgm = { name, el };
+    resume();
   }
   function stopMusic() {
-    if (!bgm) return;
-    const el = bgm.el;
+    if (bgm) bgm.el.pause();
     bgm = null;
-    const f = setInterval(() => { el.volume = Math.max(0, el.volume - 0.05); if (el.volume <= 0) { clearInterval(f); el.pause(); } }, 40);
   }
-  document.addEventListener('visibilitychange', () => { if (bgm) document.hidden ? bgm.el.pause() : bgm.el.play().catch(() => {}); });
+  // между репликами пауза не снимается, иначе музыка дёргается
+  function hold(why, on) {
+    if (on) { holds.add(why); if (bgm) bgm.el.pause(); return; }
+    holds.delete(why);
+    setTimeout(resume, 350);
+  }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { if (bgm) bgm.el.pause(); } else resume(); });
 
-  // ульта: трек Годжо, если скачался; иначе фортепианная заглушка
+  // ульта: трек Годжо, если скачался; иначе фортепианная заглушка; музыка локации молчит
   function piano(dur) {
-    if (bgm) { const el = bgm.el; el.volume = 0.08; setTimeout(() => { if (bgm && bgm.el === el) el.volume = 0.45; }, dur * 1000); }
+    hold('ult', true);
+    setTimeout(() => hold('ult', false), dur * 1000);
     if (tracks.gojo) {
-      const el = new Audio(tracks.gojo);
-      el.volume = 0.9;
-      el.play().catch(() => {});
-      setTimeout(() => { const f = setInterval(() => { el.volume = Math.max(0, el.volume - 0.1); if (el.volume <= 0) { clearInterval(f); el.pause(); } }, 50); }, dur * 1000 - 500);
+      new Audio(tracks.gojo).play().catch(() => {});
       return;
     }
     const N = [220, 261.6, 329.6, 440, 392, 329.6, 293.7, 349.2, 440, 523.3, 440, 349.2, 329.6, 415.3, 493.9, 659.3];
@@ -131,7 +136,7 @@ const Sfx = (() => {
       if (i % 4 === 0) tone(f / 2, 1.6, { type: 'sine', vol: 0.08, at });
     });
   }
-  return { unlock: ctx, play, piano, music, stopMusic, load, progress: name => prog[name] || 0 };
+  return { unlock: ctx, play, piano, music, stopMusic, hold, load, progress: name => prog[name] || 0 };
 })();
 
 // бой в духе Isaac: волны врагов, телеграф атаки, удар гитарой, ульта-пианино
