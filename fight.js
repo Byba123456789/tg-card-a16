@@ -77,7 +77,7 @@ const Sfx = (() => {
   // треки качаются один раз в blob (экран загрузки показывает прогресс), без файла — тишина
   const tracks = {}, loads = {}, prog = {};
   function load(name) {
-    loads[name] ||= fetch(`audio/${name}.mp3`).then(async r => {
+    loads[name] ||= fetch(`audio/${name}.mp3?v=2`).then(async r => {
       if (!r.ok) throw 0;
       const total = +r.headers.get('content-length') || 0, rd = r.body.getReader(), parts = [];
       let got = 0;
