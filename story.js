@@ -246,7 +246,7 @@
     solids().some(([sx0, sy0, w, d]) => x + 4 > sx0 && x - 4 < sx0 + w && y + 1 > sy0 && y - 3 < sy0 + d);
 
   const st = {
-    mode: 'title', t: 0, fade: 0, dateA: 0, task: '', marker: null, icon: null, lock: false,
+    mode: 'blank', t: 0, fade: 0, dateA: 0, task: '', marker: null, icon: null, lock: false,
     hasGuitar: false, box: true, swing: 0, hit: false, stop: 0, shake: 0, parts: [], phone: null,
     wake: { lids: 0, blur: 1, rot: 0, hand: 0, lift: 0, buzz: false },
     place: null, hasKey: false, bkOpen: false, auto: null, npcs: [], card: null, cardA: 0, hurtFlash: 0, ultFlash: 0,
@@ -908,7 +908,7 @@
   async function questFinal(who = 'Рома') {
     Sfx.stopMusic();
     st.fade = 1;
-    await loading('boss');
+    await loading(['boss', 'gojo'], 20);
     // записка от первого лица — и удар сзади
     st.lock = true;
     st.fp = { k: 0, text: 0, fall: 0 };
@@ -1147,6 +1147,8 @@
 
   async function main() {
     st.done = await loadDone();
+    await askMusic();
+    st.mode = 'title';
     await tap();
     if (!st.done.q1) await quest1();
     st.hasGuitar = true;
@@ -1156,7 +1158,7 @@
       const id = await openMap();
       if (TRACK[id]) {
         st.fade = 1;
-        await loading(TRACK[id]);
+        await loading([TRACK[id], 'gojo'], 20);
         Sfx.hold('intro', true);
         Sfx.music(TRACK[id]);
       }
@@ -1170,13 +1172,31 @@
   const LOAD_TXT = ['Мажем грим на актёров', 'Рвём туз Артемия', 'Настраиваем гитару', 'Прячем ключ в жирного', 'Надуваем батут', 'Пушкин поправляет вышку',
     'Будим аниматроников', 'Меняем батарейки в фонаре', 'Греем бургеры в БК', 'Связываем Рому покрепче', 'Учим Развитие умным словам', 'Качаем Клода',
     'Ищем, где Антон бросил велик', 'Андрей точит когти', 'Рома заряжает ноутбук', 'Сдуваем пыль с пианино', 'Договариваемся с охраной ОКИ', 'Считаем свечки на торте: 16'];
-  async function loading(name) {
-    Sfx.load('gojo');
-    if (Sfx.progress(name) >= 1) return;
+  async function loading(names, limit) {
+    names = names.filter(n => Sfx.progress(n) < 1);
+    if (!names.length) return;
     st.loadI = Math.floor(Math.random() * LOAD_TXT.length);
-    st.loadName = name;
-    await Promise.race([Sfx.load(name), wait(20)]);
-    st.loadName = null;
+    st.loadNames = names;
+    await Promise.race([Promise.all(names.map(Sfx.load)), wait(limit)]);
+    st.loadNames = null;
+  }
+
+  // перед титулом: тап по любому «да» разблокирует плееры (без тапа Android/iPhone могут не дать играть) и качает всё сразу
+  const ASK = ['Да', 'Конечно', 'Абсолютно да'];
+  const askBtn = i => { const bw = 66, gap = 8; return [W / 2 - (bw * 3 + gap * 2) / 2 + i * (bw + gap), H / 2 + 2, bw, 20]; };
+  function askTap(e) {
+    if (st.mode !== 'ask' || st.asked) return;
+    const [x, y] = toBuf(e);
+    if (e.pointerType !== 'key' && !ASK.some((_, i) => { const [bx, by, bw, bh] = askBtn(i); return x >= bx && x <= bx + bw && y >= by - 4 && y <= by + bh + 4; })) return;
+    Sfx.unlockMusic();
+    Sfx.play.go();
+    st.asked = true;
+  }
+  async function askMusic() {
+    st.mode = 'ask';
+    await until(() => st.asked);
+    st.mode = 'blank';
+    await loading([...Object.values(TRACK), 'boss', 'gojo'], 90);
   }
 
   const nearGuitar = () => st.mode === 'room' && !st.hasGuitar && Math.hypot(pl.x - GUITAR_AT[0], pl.y - GUITAR_AT[1]) < 20;
@@ -1967,8 +1987,16 @@
       g.fillStyle = `rgba(0,0,0,${st.fade})`;
       g.fillRect(0, 0, cv.width, cv.height);
     }
-    if (st.loadName) {
-      const k = Sfx.progress(st.loadName), bw = Math.min(180, W - 80);
+    if (st.mode === 'ask') {
+      text('Загрузить музыку заранее?', W / 2, H / 2 - 14, 10, '#ffd23f', 'center', 900);
+      ASK.forEach((s, i) => {
+        const [bx, by, bw, bh] = askBtn(i);
+        rr(bx, by, bw, bh, 4, '#f0a020');
+        text(s, bx + bw / 2, by + 13, 7, '#1a1620', 'center', 900);
+      });
+    }
+    if (st.loadNames) {
+      const k = st.loadNames.reduce((s, n) => s + Sfx.progress(n), 0) / st.loadNames.length, bw = Math.min(180, W - 80);
       text(LOAD_TXT[(st.loadI + Math.floor(st.t / 1.6)) % LOAD_TXT.length] + '…', W / 2, H / 2 - 8, 8, '#ffd23f', 'center', 900);
       rr(W / 2 - bw / 2 - 2, H / 2 + 4, bw + 4, 8, 3, '#2c3442');
       rect(W / 2 - bw / 2, H / 2 + 6, bw * k, 4, '#f0a020');
@@ -2067,12 +2095,13 @@
     document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
     cv.addEventListener('pointermove', e => { if (joy && e.pointerId === joy.id) [joy.x, joy.y] = toBuf(e); });
     const end = e => { if (joy && e.pointerId === joy.id) joy = null; };
-    cv.addEventListener('pointerup', end);
+    // ответ на «Загрузить музыку?» — по pointerup: на Android pointerdown от пальца не считается жестом для звука
+    cv.addEventListener('pointerup', e => { end(e); askTap(e); });
     cv.addEventListener('pointercancel', end);
     // с клавиатуры: пробел — тап, J — удар, K — ульта, E — взять/развязать
     addEventListener('keydown', e => {
       keys.add(e.code);
-      if (e.code === 'Space') onDown({ pointerType: 'key', clientX: 0, clientY: 0 });
+      if (e.code === 'Space') { askTap({ pointerType: 'key', clientX: 0, clientY: 0 }); onDown({ pointerType: 'key', clientX: 0, clientY: 0 }); }
       if ((st.mode !== 'room' && st.mode !== 'arena') || dlg || st.lock || st.auto) return;
       if (e.code === 'KeyJ' && st.hasGuitar) attack();
       if (e.code === 'KeyK' && ultReady()) fight.ult();

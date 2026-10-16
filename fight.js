@@ -94,38 +94,67 @@ const Sfx = (() => {
     }).catch(() => { delete loads[name]; return false; });
     return loads[name];
   }
+  // два плеера на всю сюжетку: Android/iPhone дают играть без тапа только тому, что уже запускали по тапу.
+  // unlockMusic() зовётся из тапа «Загрузить музыку заранее?» и гоняет в них тишину
+  const bgmEl = new Audio(), ultEl = new Audio();
+  bgmEl.loop = true;
+  function silentWav() {
+    const n = 2205, b = new DataView(new ArrayBuffer(44 + n));
+    const s = (o, t) => [...t].forEach((c, i) => b.setUint8(o + i, c.charCodeAt(0)));
+    s(0, 'RIFF'); b.setUint32(4, 36 + n, true); s(8, 'WAVE'); s(12, 'fmt ');
+    b.setUint32(16, 16, true); b.setUint16(20, 1, true); b.setUint16(22, 1, true); b.setUint32(24, 22050, true); b.setUint32(28, 22050, true);
+    b.setUint16(32, 1, true); b.setUint16(34, 8, true); s(36, 'data'); b.setUint32(40, n, true);
+    for (let i = 0; i < n; i++) b.setUint8(44 + i, 128);
+    return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
+  }
+  function unlockMusic() {
+    ctx();
+    const silent = silentWav();
+    for (const el of [bgmEl, ultEl]) {
+      el.src = silent;
+      el.play().then(() => { if (el.src === silent) el.pause(); }).catch(() => {});
+    }
+  }
   // громкость зашита в файлы, плавность — через GainNode (на iPhone el.volume не работает)
   // hold — причины тишины: intro (первый диалог локации) и ult — в ноль, dlg — приглушить
-  let bgm = null;
+  let cur = null, g = null, gen = 0;
   const holds = new Set();
   const level = () => holds.has('intro') || holds.has('ult') ? 0 : holds.has('dlg') ? 0.25 : 1;
-  function fadeTo(m, v, after) {
+  function gain(v, now) {
     const a = ctx();
-    if (m.g && a) { m.g.gain.cancelScheduledValues(a.currentTime); m.g.gain.setTargetAtTime(v, a.currentTime, 0.12); } else m.el.volume = v;
-    if (after) setTimeout(after, 500);
+    if (!g || !a) { bgmEl.volume = v; return; }
+    g.gain.cancelScheduledValues(a.currentTime);
+    if (now) g.gain.setValueAtTime(v, a.currentTime); else g.gain.setTargetAtTime(v, a.currentTime, 0.12);
+  }
+  // пауза после затухания — только если с тех пор ничего не поменялось
+  function fadeOut() {
+    const my = ++gen;
+    gain(0);
+    setTimeout(() => { if (gen === my) bgmEl.pause(); }, 500);
   }
   function apply() {
-    if (!bgm) return;
-    const m = bgm, v = document.hidden ? 0 : level();
-    if (v > 0 && m.el.paused) m.el.play().catch(() => {});
-    fadeTo(m, v, v ? null : () => { if (bgm !== m || (document.hidden ? 0 : level()) === 0) m.el.pause(); });
+    if (!cur) return;
+    const v = document.hidden ? 0 : level();
+    if (!v) return fadeOut();
+    gen++;
+    if (bgmEl.paused) bgmEl.play().catch(() => {});
+    gain(v);
   }
   function music(name) {
-    if (bgm && bgm.name === name) return apply();
-    drop();
-    if (!tracks[name]) return;
-    const el = new Audio(tracks[name]), a = ctx();
-    el.loop = true;
-    let g = null;
-    if (a) try { g = a.createGain(); g.gain.value = 0; a.createMediaElementSource(el).connect(g).connect(a.destination); } catch { g = null; }
-    bgm = { name, el, g };
+    if (cur === name) return apply();
+    if (!tracks[name]) return drop();
+    const a = ctx();
+    if (!g && a) try { g = a.createGain(); a.createMediaElementSource(bgmEl).connect(g).connect(a.destination); } catch { g = null; }
+    gen++;
+    cur = name;
+    bgmEl.src = tracks[name];
+    gain(0, true);
     apply();
   }
   function drop() {
-    if (!bgm) return;
-    const m = bgm;
-    bgm = null;
-    fadeTo(m, 0, () => m.el.pause());
+    if (!cur) return;
+    cur = null;
+    fadeOut();
   }
   function stopMusic() {
     holds.delete('intro');
@@ -144,7 +173,8 @@ const Sfx = (() => {
     hold('ult', true);
     setTimeout(() => hold('ult', false), dur * 1000);
     if (tracks.gojo) {
-      new Audio(tracks.gojo).play().catch(() => {});
+      ultEl.src = tracks.gojo;
+      ultEl.play().catch(() => {});
       return;
     }
     const N = [220, 261.6, 329.6, 440, 392, 329.6, 293.7, 349.2, 440, 523.3, 440, 349.2, 329.6, 415.3, 493.9, 659.3];
@@ -155,7 +185,7 @@ const Sfx = (() => {
       if (i % 4 === 0) tone(f / 2, 1.6, { type: 'sine', vol: 0.08, at });
     });
   }
-  return { unlock: ctx, play, piano, music, stopMusic, hold, load, progress: name => prog[name] || 0 };
+  return { unlock: ctx, unlockMusic, play, piano, music, stopMusic, hold, load, progress: name => prog[name] || 0 };
 })();
 
 // бой в духе Isaac: волны врагов, телеграф атаки, удар гитарой, ульта-пианино
